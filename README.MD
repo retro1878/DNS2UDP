@@ -191,6 +191,17 @@ sudo firewall-cmd --reload
 ```
 
 - If port `53` is already occupied by another service, such as `systemd-resolved`, see the troubleshooting section “Fixing Port 53 Already in Use”.
+- **Optional: UDP Download Channel.** If you set `UDP_DOWNLOAD_PORT` (e.g. `5555`) in both the server and client configs, the server will push download packets directly to the client over raw UDP, bypassing DNS encoding for lower latency. In that case, open the port on **both** machines:
+
+```bash
+# Server
+sudo ufw allow 5555/udp
+sudo ufw reload
+
+# Client machine (replace 5555 with your chosen port)
+sudo ufw allow 5555/udp
+sudo ufw reload
+```
 - The encryption key (`encrypt_key.txt`) is shown after installation. Copy it and store it safely because the client needs it to connect.
 
 ---

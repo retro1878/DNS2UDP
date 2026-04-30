@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"net"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ var (
 
 const (
 	sessionInitPayloadSize      = 10
+	sessionInitUDPSize          = 16
 	sessionAcceptPayloadSize    = 7
 	sessionBusyPayloadSize      = 4
 	sessionCloseBurstMaxTargets = 10
@@ -105,7 +107,11 @@ func (c *Client) buildSessionInitPayload() ([]byte, bool, [4]byte, error) {
 	}
 	copy(verifyCode[:], randomPart)
 
-	payload := make([]byte, sessionInitPayloadSize)
+	size := sessionInitPayloadSize
+	if c.cfg.UDPDownloadPort > 0 && c.cfg.UDPDownloadIP != "" {
+		size = sessionInitUDPSize
+	}
+	payload := make([]byte, size)
 	if c.cfg.BaseEncodeData {
 		payload[0] = mtuProbeBase64Reply
 	}
@@ -113,6 +119,13 @@ func (c *Client) buildSessionInitPayload() ([]byte, bool, [4]byte, error) {
 	binary.BigEndian.PutUint16(payload[2:4], uint16(c.syncedUploadMTU))
 	binary.BigEndian.PutUint16(payload[4:6], uint16(c.syncedDownloadMTU))
 	copy(payload[6:10], verifyCode[:])
+	if size == sessionInitUDPSize {
+		ip := net.ParseIP(c.cfg.UDPDownloadIP).To4()
+		if ip != nil {
+			copy(payload[10:14], ip)
+			binary.BigEndian.PutUint16(payload[14:16], uint16(c.cfg.UDPDownloadPort))
+		}
+	}
 	return payload, payload[0] == mtuProbeBase64Reply, verifyCode, nil
 }
 

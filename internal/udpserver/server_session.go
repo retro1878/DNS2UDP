@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"time"
 
 	"stormdns-go/internal/arq"
@@ -180,22 +181,25 @@ func (s *Server) queueSessionPacket(sessionID uint8, packet VpnProto.Packet) boo
 		return false
 	}
 
+	var pushed bool
 	if packet.StreamID == 0 {
 		record.ensureStream0(s.log)
 		stream, exists := record.getStream(0)
 		if !exists || stream == nil {
 			return false
 		}
-
-		return stream.PushTXPacket(getEffectivePriority(packet.PacketType, 3), packet.PacketType, packet.SequenceNum, packet.FragmentID, packet.TotalFragments, packet.CompressionType, 0, packet.Payload)
+		pushed = stream.PushTXPacket(getEffectivePriority(packet.PacketType, 3), packet.PacketType, packet.SequenceNum, packet.FragmentID, packet.TotalFragments, packet.CompressionType, 0, packet.Payload)
+	} else {
+		stream, exists := record.getStream(packet.StreamID)
+		if !exists || stream == nil {
+			return false
+		}
+		pushed = stream.PushTXPacket(getEffectivePriority(packet.PacketType, 3), packet.PacketType, packet.SequenceNum, packet.FragmentID, packet.TotalFragments, packet.CompressionType, 0, packet.Payload)
 	}
-
-	stream, exists := record.getStream(packet.StreamID)
-	if !exists || stream == nil {
-		return false
+	if pushed {
+		s.signalUDPSend()
 	}
-
-	return stream.PushTXPacket(getEffectivePriority(packet.PacketType, 3), packet.PacketType, packet.SequenceNum, packet.FragmentID, packet.TotalFragments, packet.CompressionType, 0, packet.Payload)
+	return pushed
 }
 
 func (s *Server) streamARQConfig(compressionType uint8) arq.Config {
@@ -684,7 +688,8 @@ func buildPreSessionPacketTypes() [256]bool {
 }
 
 func (s *Server) handleSessionInitRequest(questionPacket []byte, decision domainMatcher.Decision, vpnPacket VpnProto.Packet) []byte {
-	if vpnPacket.SessionID != 0 || len(vpnPacket.Payload) != sessionInitDataSize {
+	payloadLen := len(vpnPacket.Payload)
+	if vpnPacket.SessionID != 0 || (payloadLen != sessionInitDataSize && payloadLen != sessionInitUDPSize) {
 		return nil
 	}
 
@@ -714,6 +719,14 @@ func (s *Server) handleSessionInitRequest(questionPacket []byte, decision domain
 		return nil
 	}
 	record.streamCleanup = s.cleanupStreamArtifacts
+
+	if !reused && payloadLen == sessionInitUDPSize && s.cfg.UDPDownloadPort > 0 {
+		ip := net.IP(vpnPacket.Payload[10:14]).To4()
+		port := int(binary.BigEndian.Uint16(vpnPacket.Payload[14:16]))
+		if ip != nil && port > 0 {
+			record.ClientUDPAddr = &net.UDPAddr{IP: ip, Port: port}
+		}
+	}
 
 	if !reused && s.log != nil {
 		s.log.Infof(

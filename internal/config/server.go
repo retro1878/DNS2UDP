@@ -92,6 +92,7 @@ type ServerConfig struct {
 	ARQDataNackRepeatSeconds          float64  `toml:"ARQ_DATA_NACK_REPEAT_SECONDS"`
 	ARQTerminalDrainTimeoutSec        float64  `toml:"ARQ_TERMINAL_DRAIN_TIMEOUT_SECONDS"`
 	ARQTerminalAckWaitTimeoutSec      float64  `toml:"ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS"`
+	UDPDownloadPort                   int      `toml:"UDP_DOWNLOAD_PORT"`
 }
 
 type ServerConfigOverrides struct {
@@ -405,6 +406,10 @@ func finalizeServerConfig(cfg ServerConfig) (ServerConfig, error) {
 	cfg.ARQDataNackRepeatSeconds = clampFloat(defaultFloatAtMostZero(cfg.ARQDataNackRepeatSeconds, 2.0), 0.3, 30.0)
 	cfg.ARQTerminalDrainTimeoutSec = clampFloat(defaultFloatAtMostZero(cfg.ARQTerminalDrainTimeoutSec, 90.0), 10.0, 3600.0)
 	cfg.ARQTerminalAckWaitTimeoutSec = clampFloat(defaultFloatAtMostZero(cfg.ARQTerminalAckWaitTimeoutSec, 60.0), 5.0, 3600.0)
+
+	if cfg.UDPDownloadPort < 0 || cfg.UDPDownloadPort > 65535 {
+		cfg.UDPDownloadPort = 0
+	}
 
 	return cfg, nil
 }

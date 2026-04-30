@@ -9,6 +9,7 @@ package udpserver
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -92,6 +93,9 @@ type Server struct {
 	fragmentInvalidHeader   atomic.Uint64
 	upstreamPanicsRecovered atomic.Uint64
 	cleanupPanicsRecovered  atomic.Uint64
+
+	udpDownConn   *net.UDPConn
+	udpSendSignal chan struct{}
 }
 
 // Stats is a point-in-time snapshot of operational counters maintained by the
@@ -332,6 +336,24 @@ func (s *Server) Run(ctx context.Context) error {
 		s.cfg.DNSRequestWorkers,
 		s.cfg.MaxConcurrentRequests,
 	)
+
+	if s.cfg.UDPDownloadPort > 0 {
+		downConn, err := net.ListenUDP("udp", &net.UDPAddr{
+			IP:   net.IPv4zero,
+			Port: s.cfg.UDPDownloadPort,
+		})
+		if err != nil {
+			return fmt.Errorf("udp download listener on port %d: %w", s.cfg.UDPDownloadPort, err)
+		}
+		s.udpDownConn = downConn
+		s.udpSendSignal = make(chan struct{}, 1)
+		defer downConn.Close()
+		s.log.Infof(
+			"\U0001F4E1 <green>UDP Download Channel Ready, Port: <cyan>%d</cyan></green>",
+			s.cfg.UDPDownloadPort,
+		)
+		go s.runUDPSender(runCtx)
+	}
 
 	reqCh := make(chan request, s.cfg.MaxConcurrentRequests)
 	var workerWG sync.WaitGroup

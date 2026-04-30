@@ -429,5 +429,23 @@ LOG_SCAN_MAX_RESOLVERS = 0
 LOG_BASED_MTU_VERIFY = true
 
 # ------------------------------------------------------------------------------
+# UDP Download Channel
+# What this section does:
+# - Enables a parallel download path where the server sends encrypted VPN packets
+#   directly to this machine's public IP:port as raw UDP datagrams, bypassing DNS.
+# - The server must have UDP_DOWNLOAD_PORT set to the same port.
+# - This machine must allow the port inbound (ufw allow <port>/udp).
+# - Leave both empty/0 to use DNS-only download path.
+# ------------------------------------------------------------------------------
+
+# This machine's public IPv4 address (where the server sends download packets).
+# e.g. "203.0.113.42". Leave empty to disable.
+UDP_DOWNLOAD_IP = ""
+
+# UDP port this client listens on for the download channel.
+# e.g. 5555 — must match server UDP_DOWNLOAD_PORT. 0 = disabled.
+UDP_DOWNLOAD_PORT = 0
+
+# ------------------------------------------------------------------------------
 
 CONFIG_VERSION = "1"

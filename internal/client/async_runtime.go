@@ -20,6 +20,7 @@ import (
 	"stormdns-go/internal/client/handlers"
 	DnsParser "stormdns-go/internal/dnsparser"
 	fragmentStore "stormdns-go/internal/fragmentstore"
+	VpnProto "stormdns-go/internal/vpnproto"
 )
 
 const clientRXDropLogInterval = 2 * time.Second
@@ -28,6 +29,7 @@ type asyncReadPacket struct {
 	data      []byte
 	addr      *net.UDPAddr
 	localAddr string
+	rawUDP    bool
 }
 
 // StopAsyncRuntime stops all running workers (Readers, Writers, Processors).
@@ -37,6 +39,10 @@ func (c *Client) StopAsyncRuntime() {
 		c.log.Debugf("\U0001F6D1 <yellow>Stopping Async Runtime...</yellow>")
 		c.asyncCancel()
 		c.closeTunnelSockets()
+		if c.udpDownConn != nil {
+			_ = c.udpDownConn.Close()
+			c.udpDownConn = nil
+		}
 		c.asyncWG.Wait()
 		c.asyncCancel = nil
 
@@ -244,6 +250,10 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 			c.dnsListener = nil
 		}
 		c.closeTunnelSockets()
+		if c.udpDownConn != nil {
+			_ = c.udpDownConn.Close()
+			c.udpDownConn = nil
+		}
 		c.asyncCancel = nil
 		c.resetRuntimeBindings(false)
 	}()
@@ -264,6 +274,19 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 	}
 
 	c.tunnelConns = conns
+
+	if c.cfg.UDPDownloadPort > 0 && c.cfg.UDPDownloadIP != "" {
+		downConn, err := net.ListenUDP("udp", &net.UDPAddr{Port: c.cfg.UDPDownloadPort})
+		if err != nil {
+			for _, opened := range conns {
+				_ = opened.Close()
+			}
+			cancel()
+			c.asyncCancel = nil
+			return fmt.Errorf("failed to open UDP download socket on port %d: %w", c.cfg.UDPDownloadPort, err)
+		}
+		c.udpDownConn = downConn
+	}
 
 	c.log.Infof("\U0001F4E1 <cyan>Async Runtime Initialized: <green>%d RX/TX Workers</green>, <green>%d Processors</green></cyan>",
 		c.tunnelRX_TX_Workers, c.tunnelProcessWorkers)
@@ -316,7 +339,13 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 	c.asyncWG.Add(1)
 	go c.asyncStreamCleanupWorker(runtimeCtx)
 
-	// 10. Resolver timeout/health runtime.
+	// 10. UDP download reader (if configured).
+	if c.udpDownConn != nil {
+		c.asyncWG.Add(1)
+		go c.asyncUDPDownloadReaderWorker(runtimeCtx)
+	}
+
+	// 11. Resolver timeout/health runtime.
 	// Keep this loop always running so resolver timeout samples are still pruned
 	// even when auto-disable and background recheck are disabled.
 	c.asyncWG.Add(1)
@@ -325,7 +354,7 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 		c.runResolverHealthLoop(runtimeCtx)
 	}()
 
-	// 11. Traffic stats reporter.
+	// 12. Traffic stats reporter.
 	if c.cfg.StatsReportInterval() > 0 {
 		c.asyncWG.Add(1)
 		go func() {
@@ -709,7 +738,11 @@ func (c *Client) asyncProcessorWorker(ctx context.Context, id int) {
 		case <-ctx.Done():
 			return
 		case pkt := <-c.rxChannel:
-			c.handleInboundPacket(pkt.data, pkt.addr, pkt.localAddr)
+			if pkt.rawUDP {
+				c.handleRawUDPDownloadPacket(pkt.data)
+			} else {
+				c.handleInboundPacket(pkt.data, pkt.addr, pkt.localAddr)
+			}
 
 			// RECYCLE buffer back to the pool.
 			c.udpBufferPool.Put(pkt.data[:cap(pkt.data)])
@@ -762,4 +795,57 @@ func (c *Client) handleInboundPacket(data []byte, addr *net.UDPAddr, localAddr s
 		c.log.Warnf("\U0001F6A8 <red>Handler execution failed: %v</red>", err)
 	}
 
+}
+
+const minRawUDPDownloadSize = 4
+
+func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
+	defer c.asyncWG.Done()
+	c.log.Debugf("\U0001F4E1 <green>UDP Download Reader started</green>")
+	conn := c.udpDownConn
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			buf := c.udpBufferPool.Get().([]byte)
+			n, _, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				c.udpBufferPool.Put(buf)
+				if ctx.Err() != nil {
+					return
+				}
+				continue
+			}
+			if n < minRawUDPDownloadSize {
+				c.udpBufferPool.Put(buf)
+				continue
+			}
+			c.rxTotalBytes.Add(uint64(n))
+			select {
+			case c.rxChannel <- asyncReadPacket{data: buf[:n], rawUDP: true}:
+			default:
+				c.udpBufferPool.Put(buf)
+				c.onRXDrop(nil)
+			}
+		}
+	}
+}
+
+func (c *Client) handleRawUDPDownloadPacket(data []byte) {
+	decrypted, err := c.codec.Decrypt(data)
+	if err != nil {
+		return
+	}
+	vpnPacket, err := VpnProto.Parse(decrypted)
+	if err != nil {
+		return
+	}
+	c.NotifyPacket(vpnPacket.PacketType, true)
+	if handled := c.preprocessInboundPacket(vpnPacket); handled {
+		return
+	}
+	if err := handlers.Dispatch(c, vpnPacket, nil); err != nil {
+		c.log.Warnf("\U0001F6A8 <red>Handler execution failed: %v</red>", err)
+	}
 }

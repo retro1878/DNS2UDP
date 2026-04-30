@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"net"
 	"slices"
 	"strings"
 	"sync"
@@ -30,6 +31,7 @@ const (
 	maxServerSessionID    = 255
 	maxServerSessionSlots = 255
 	sessionInitDataSize   = 10
+	sessionInitUDPSize    = 16
 	minSessionMTU         = 10
 	maxSessionMTU         = 4096
 )
@@ -54,6 +56,8 @@ type sessionRecord struct {
 	reuseUntilUnixNano                  int64
 	lastActivityUnixNano                int64
 	lastDeferredCleanupActivityUnixNano int64
+
+	ClientUDPAddr *net.UDPAddr
 
 	// New fields for ARQ refactor
 	Streams                         map[uint16]*Stream_server
@@ -246,7 +250,7 @@ func newSessionStore(orphanQueueCap int, streamQueueCap int, options ...any) *se
 }
 
 func (s *sessionStore) findOrCreate(payload []byte, uploadCompressionType uint8, downloadCompressionType uint8, maxPacketsPerBatch int) (*sessionRecord, bool, error) {
-	if len(payload) != sessionInitDataSize || !isValidSessionResponseMode(payload[0]) {
+	if (len(payload) != sessionInitDataSize && len(payload) != sessionInitUDPSize) || !isValidSessionResponseMode(payload[0]) {
 		return nil, false, nil
 	}
 

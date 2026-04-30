@@ -107,6 +107,7 @@ type Client struct {
 	asyncWG              sync.WaitGroup
 	asyncCancel          context.CancelFunc
 	tunnelConns          []*net.UDPConn
+	udpDownConn          *net.UDPConn
 	txChannel            chan rawOutboundTask
 	encodedTXChannel     chan encodedOutboundTask
 	rxChannel            chan asyncReadPacket
