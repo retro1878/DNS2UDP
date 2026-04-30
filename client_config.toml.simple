@@ -260,6 +260,11 @@ MTU_TEST_PARALLELISM_LOGS = 32
 RX_TX_WORKERS = 4
 TUNNEL_PROCESS_WORKERS = 4
 
+# Number of workers dedicated to processing UDP download channel packets.
+# These run in a separate pool from TUNNEL_PROCESS_WORKERS so bulk UDP data
+# cannot starve DNS ACKs and control packets. 0 = inherit TUNNEL_PROCESS_WORKERS.
+UDP_PROCESS_WORKERS = 0
+
 # Per-packet tunnel timeout used in async runtime paths.
 # Clamped to [0.5s, 120s].
 TUNNEL_PACKET_TIMEOUT_SECONDS = 10.0

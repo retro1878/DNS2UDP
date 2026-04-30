@@ -83,6 +83,7 @@ type ClientConfig struct {
 	LegacyTunnelReaderWorkers             int               `toml:"TUNNEL_READER_WORKERS"`
 	LegacyTunnelWriterWorkers             int               `toml:"TUNNEL_WRITER_WORKERS"`
 	TunnelProcessWorkers                  int               `toml:"TUNNEL_PROCESS_WORKERS"`
+	UDPProcessWorkers                     int               `toml:"UDP_PROCESS_WORKERS"`
 	TunnelPacketTimeoutSec                float64           `toml:"TUNNEL_PACKET_TIMEOUT_SECONDS"`
 	DispatcherIdlePollIntervalSeconds     float64           `toml:"DISPATCHER_IDLE_POLL_INTERVAL_SECONDS"`
 	PingAggressiveIntervalSeconds         float64           `toml:"PING_AGGRESSIVE_INTERVAL_SECONDS"`
@@ -202,6 +203,7 @@ func defaultClientConfig() ClientConfig {
 		MTUTestParallelismLogs:                32,
 		RX_TX_Workers:                         4,
 		TunnelProcessWorkers:                  4,
+		UDPProcessWorkers:                     0,
 		TunnelPacketTimeoutSec:                10.0,
 		DispatcherIdlePollIntervalSeconds:     0.020,
 		PingAggressiveIntervalSeconds:         0.200,
@@ -463,6 +465,8 @@ func finalizeClientConfig(cfg ClientConfig) (ClientConfig, error) {
 
 	cfg.RX_TX_Workers = clampInt(defaultIntBelow(cfg.RX_TX_Workers, 1, 4), 1, 64)
 	cfg.TunnelProcessWorkers = max(clampInt(defaultIntBelow(cfg.TunnelProcessWorkers, 1, 4), 1, 64), cfg.RX_TX_Workers)
+	// UDP_PROCESS_WORKERS defaults to TUNNEL_PROCESS_WORKERS when unset (0).
+	cfg.UDPProcessWorkers = clampInt(defaultIntBelow(cfg.UDPProcessWorkers, 1, cfg.TunnelProcessWorkers), 1, 64)
 
 	cfg.TunnelPacketTimeoutSec = clampFloat(defaultFloatAtMostZero(cfg.TunnelPacketTimeoutSec, 8.0), 0.5, 120.0)
 	cfg.DispatcherIdlePollIntervalSeconds = clampFloat(defaultFloatAtMostZero(cfg.DispatcherIdlePollIntervalSeconds, 0.020), 0.001, 1.0)

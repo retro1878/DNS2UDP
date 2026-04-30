@@ -346,7 +346,7 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 		c.asyncWG.Add(1)
 		go c.asyncUDPDownloadReaderWorker(runtimeCtx)
 
-		udpWorkers := max(1, c.tunnelProcessWorkers)
+		udpWorkers := max(1, c.tunnelUDPWorkers)
 		for i := 0; i < udpWorkers; i++ {
 			c.asyncWG.Add(1)
 			go c.asyncUDPProcessorWorker(runtimeCtx, i)

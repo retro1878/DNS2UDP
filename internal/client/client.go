@@ -114,6 +114,7 @@ type Client struct {
 	udpRxChannel         chan asyncReadPacket // improvement 1: dedicated UDP download channel
 	tunnelRX_TX_Workers  int
 	tunnelProcessWorkers int
+	tunnelUDPWorkers     int
 	tunnelPacketTimeout  time.Duration
 
 	// Local Proxy Daemons
@@ -351,6 +352,7 @@ func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Cl
 		// Workers config
 		tunnelRX_TX_Workers:   cfg.RX_TX_Workers,
 		tunnelProcessWorkers:  cfg.TunnelProcessWorkers,
+		tunnelUDPWorkers:      cfg.UDPProcessWorkers,
 		tunnelPacketTimeout:   time.Duration(cfg.TunnelPacketTimeoutSec * float64(time.Second)),
 		txChannel:             make(chan rawOutboundTask, cfg.TXChannelSize),
 		encodedTXChannel:      make(chan encodedOutboundTask, max(24, cfg.RX_TX_Workers*24)),
