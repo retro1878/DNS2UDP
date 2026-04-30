@@ -27,7 +27,7 @@ While it shares a high-level goal with tools such as DNSTT or SlipStream, StormD
 | Real multipath | Yes (QUIC multipath) | ❌ | Yes (multi-resolver + duplication) |
 | Adaptive routing | Limited | ❌ | Advanced (latency/loss based) |
 | Design goal | High speed and efficiency | Simplicity and stability | Surviving the harshest networks — stability, speed, and efficiency |
-| Implementation language | Rust | Go | Python and Go |
+| Implementation language | Rust | Go | Go |
 | Built-in balancer | 🔴 | ❌ | 🟢 (4 built-in balancing modes) |
 | Duplication system | ❌ | ❌ | Yes — increases traffic to improve reliability (configurable) |
 | MTU tolerance | Better than DNSTT | - | Works even with very small MTU because protocol overhead is very low |
@@ -137,72 +137,88 @@ Shorter domain names leave more space for actual data inside each DNS request. F
 
 ---
 
-### Section 1.2: 🐧 Quick Linux Server Installation
+### Section 1.2: 🐧 Quick Linux Installation (Server & Client)
 
-#### Step 1.2.1: Automatic Installation (Script)
+#### Step 1.2.1: Unified Installer (Recommended)
 
-If you want to deploy the server on Linux, the easiest method is the automatic installer script. Run this command on the server:
+StormDNS ships a single smart installer that handles both the server and the client. It auto-detects which role to install, guides you through a configuration wizard, discovers and tests DNS resolvers, handles port-53 conflicts, opens firewall ports, and sets up a systemd service.
+
+Run it on any Linux machine (as root):
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/server_linux_install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh)
 ```
 
-The script handles installation and configuration automatically. When it finishes, the server starts and the **encryption key** is shown in the terminal log and also written to `encrypt_key.txt` next to the executable. Keep this key safe.
+The installer will auto-detect whether the machine is a server or a client, or ask if it cannot decide.
 
-##### Installer command-line options
+You can also pass the role explicitly:
 
-The installer also accepts the following options, which can be passed directly through the same `bash <(curl ...)` command:
+```bash
+# Install the server:
+bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh) --server
+
+# Install the client:
+bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh) --client
+```
+
+##### Installer options
 
 | Option | Description |
 | --- | --- |
-| `-v <VERSION>`, `--version <VERSION>` | Install a specific StormDNS release tag (e.g. `v1.2.3`) instead of the latest release. |
-| `-u`, `--uninstall` | Uninstall StormDNS: stop and remove the `stormdns` systemd service, drop the kernel/limit tunings, and clean up the binary, `server_config.toml`, and `encrypt_key.txt` in the current directory. |
-| `-h`, `--help` | Show usage help and exit. |
+| `--server` | Force server role. |
+| `--client` | Force client role. |
+| `-v <TAG>`, `--version <TAG>` | Install a specific release tag instead of the latest. |
+| `-u`, `--uninstall` | Stop the service and remove all StormDNS files for the detected role. |
+| `--status` | Show the current service state and key config values for both roles. |
+| `-h`, `--help` | Show usage and exit. |
 
 Examples:
 
 ```bash
-# Install a specific release version:
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/server_linux_install.sh) --version v1.2.3
+# Install a specific release:
+bash <(curl -Ls .../install.sh) --server --version v2024.01.01.120000-abc1234
 
-# Uninstall StormDNS (run from the same directory used during installation):
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/server_linux_install.sh) --uninstall
+# Uninstall the server:
+bash <(curl -Ls .../install.sh) --server --uninstall
+
+# Check current status:
+bash <(curl -Ls .../install.sh) --status
 ```
 
-> Note: For uninstall, run the command from the same working directory where StormDNS was originally installed so the script can locate the binary, config file, and encryption key.
+#### What the installer does automatically
+
+- **Role detection** — checks running systemd services, config files, local binaries, and whether the public IP is bound to a local interface.
+- **NS record verification** — resolves the tunnel domain's NS record and checks that it points to this server's public IP. Warns if not yet propagated.
+- **Port 53 management** (server only) — disables the `systemd-resolved` stub listener, stops conflicting DNS services (bind, dnsmasq, unbound, coredns, pihole, etc.), and kills remaining processes on port 53.
+- **Resolver discovery** (client only) — tests 12+ well-known public resolvers plus your `/etc/resolv.conf` entries against the tunnel domain, writes only verified resolvers to `client_resolvers.txt`, and lets you add custom entries interactively.
+- **Firewall** — opens port 53/UDP+TCP (server) and the optional UDP download port using whichever tool is active (ufw, firewalld, iptables, ip6tables).
+- **Kernel tuning** (server only) — writes optimised sysctl and ulimit config under `/etc/sysctl.d/` and `/etc/security/limits.d/`.
+- **Key generation** — starts the server briefly on first install to generate `encrypt_key.txt`, then displays the key in the summary.
+- **Config migration** — backs up existing configs, restores them if the version matches, or archives them with a timestamp if an upgrade is needed.
 
 #### Step 1.2.2: Important Notes After Installation
 
-- During installation, you will be asked for a domain. It must be the same delegated subdomain you configured in the `NS` record, for example `v.example.com`.
-- After creating DNS records, wait for propagation. This may take from a few minutes to several hours, and in some cases up to 48 hours depending on TTL and the DNS provider.
-- To verify the DNS setup, you can use tools such as `dig` or `nslookup`, for example `dig v.example.com NS` or `nslookup -type=ns v.example.com`. For a direct query to the new nameserver: `dig @ns.example.com v.example.com A`.
-- If the server firewall is enabled, allow UDP port 53. Example for `ufw`:
+- During server installation you will be asked for the tunnel domain. It must match the delegated subdomain you configured in the `NS` record, for example `vpn.example.com`.
+- After creating DNS records, wait for propagation. This can take from a few minutes to 48 hours depending on TTL and your DNS provider.
+- To verify the DNS setup: `dig vpn.example.com NS` or `dig @ns.example.com vpn.example.com A`.
+- The installer opens port 53 automatically. If you prefer to do it manually:
 
 ```bash
-sudo ufw allow 53/udp
-sudo ufw reload
+# ufw
+sudo ufw allow 53/udp && sudo ufw allow 53/tcp && sudo ufw reload
+
+# firewalld
+sudo firewall-cmd --permanent --add-port=53/udp --add-port=53/tcp && sudo firewall-cmd --reload
 ```
 
-For `firewalld`:
+- If port `53` is already occupied, see the troubleshooting section “Fixing Port 53 Already in Use”. The installer handles this automatically, but manual steps are documented there.
+- **UDP Download Channel (optional):** When `UDP_DOWNLOAD_PORT` is set to the same non-zero value on both server and client, the server pushes download packets directly over raw UDP, bypassing DNS encoding for lower latency. Open this port on both machines:
 
 ```bash
-sudo firewall-cmd --add-port=53/udp --permanent
-sudo firewall-cmd --reload
+sudo ufw allow 5555/udp && sudo ufw reload   # replace 5555 with your chosen port
 ```
 
-- If port `53` is already occupied by another service, such as `systemd-resolved`, see the troubleshooting section “Fixing Port 53 Already in Use”.
-- **Optional: UDP Download Channel.** If you set `UDP_DOWNLOAD_PORT` (e.g. `5555`) in both the server and client configs, the server will push download packets directly to the client over raw UDP, bypassing DNS encoding for lower latency. In that case, open the port on **both** machines:
-
-```bash
-# Server
-sudo ufw allow 5555/udp
-sudo ufw reload
-
-# Client machine (replace 5555 with your chosen port)
-sudo ufw allow 5555/udp
-sudo ufw reload
-```
-- The encryption key (`encrypt_key.txt`) is shown after installation. Copy it and store it safely because the client needs it to connect.
+- The encryption key is shown at the end of server installation and written to `encrypt_key.txt`. Copy it immediately — the client needs it to connect.
 
 ---
 
@@ -338,8 +354,8 @@ Then run:
 git clone https://github.com/nullroute1970/StormDNS.git
 cd StormDNS
 
-go build -o stormdns-client ./cmd/client
 go build -o stormdns-server ./cmd/server
+go build -o stormdns-client ./cmd/client
 ```
 
 On Windows:
@@ -348,8 +364,8 @@ On Windows:
 git clone https://github.com/nullroute1970/StormDNS.git
 cd StormDNS
 
-go build -o stormdns-client.exe .\cmd\client
 go build -o stormdns-server.exe .\cmd\server
+go build -o stormdns-client.exe .\cmd\client
 ```
 
 #### Create config files
@@ -373,15 +389,15 @@ Copy-Item client_resolvers.simple client_resolvers.txt
 #### Run the server and client
 
 ```bash
-./stormdns-server -config server_config.toml
-./stormdns-client -config client_config.toml
+./stormdns-server --config server_config.toml
+./stormdns-client --config client_config.toml
 ```
 
 On Windows:
 
 ```powershell
-.\stormdns-server.exe -config server_config.toml
-.\stormdns-client.exe -config client_config.toml
+.\stormdns-server.exe --config server_config.toml
+.\stormdns-client.exe --config client_config.toml
 ```
 
 #### Command-line parameters
@@ -390,15 +406,15 @@ Both binaries support these arguments:
 
 | Parameter | Description |
 | :--- | :--- |
-| `-config` | Path to the configuration file |
-| `-log` | Optional path to a log file |
-| `-version` | Print version and exit |
+| `--config` | Path to the configuration file |
+| `--log` | Optional path to a log file (server only) |
+| `--version` | Print version and exit |
 
 Example:
 
 ```bash
-./stormdns-server -config server_config.toml -log server.log
-./stormdns-client -config client_config.toml -log client.log
+./stormdns-server --config server_config.toml --log server.log
+./stormdns-client --config client_config.toml
 ```
 
 ---
@@ -409,12 +425,14 @@ Example:
 
 | File | Purpose |
 | :--- | :--- |
+| `install.sh` | Unified smart installer — handles server and client installation, updates, and uninstall |
 | `client_config.toml` | Main client configuration |
 | `server_config.toml` | Main server configuration |
 | `client_resolvers.txt` | Resolver list |
 | `encrypt_key.txt` | Shared server-side encryption key |
 | `client_config.toml.simple` | Full sample client config for the current Go version |
 | `server_config.toml.simple` | Full sample server config for the current Go version |
+| `client_resolvers.simple` | Sample resolver file with format documentation |
 
 Accepted formats in `client_resolvers.txt`:
 
@@ -606,7 +624,18 @@ These settings are critical on the server:
 
 | Parameter | Sample Value | Allowed Values / Real Behavior | Full Explanation |
 | :--- | :--- | :--- | :--- |
-| `LOG_LEVEL` | `"INFO"` | usually `DEBUG`, `INFO`, `WARN`, `ERROR` | Controls client log verbosity.<br>`INFO` is usually enough for normal operation.<br>Use `DEBUG` when investigating resolver health, failover, ARQ, or packet paths. |
+| `LOG_LEVEL` | `"INFO"` | `DEBUG`, `INFO`, `WARN`, `ERROR` | Controls client log verbosity.<br>`INFO` is usually enough for normal operation.<br>Use `DEBUG` when investigating resolver health, failover, ARQ, or packet paths. |
+| `LOG_TO_FILE` | `false` | `true/false` | If enabled, log output is written to a file instead of (or in addition to) stdout. |
+| `LOG_DIR` | `"logs"` | directory path | Directory where log files are written when `LOG_TO_FILE = true`. |
+| `LOG_FILE_NAME` | `"stormdns_{time}.log"` | string with optional `{time}` | Log file name template. `{time}` is replaced with the start timestamp (`YYYYMMDD_HHMMSS`). |
+| `STATS_REPORT_INTERVAL_SECONDS` | `60.0` | `0` disables | How often runtime statistics (bandwidth, resolver health, stream counts) are printed to the log. |
+
+### 3.4.11) 📡 UDP Download Channel
+
+| Parameter | Sample Value | Allowed Values / Real Behavior | Full Explanation |
+| :--- | :--- | :--- | :--- |
+| `UDP_DOWNLOAD_IP` | `""` | IPv4 string | This machine's public IPv4 address. The server sends download packets here.<br>Set to your public IP when enabling the UDP download channel. Leave empty to disable. |
+| `UDP_DOWNLOAD_PORT` | `0` | `0..65535` | UDP port the client listens on for the download channel.<br>Must match `UDP_DOWNLOAD_PORT` on the server. `0` disables the channel. |
 
 ---
 
@@ -647,6 +676,8 @@ These settings are critical on the server:
 | `STREAM_QUEUE_INITIAL_CAPACITY` | `256` | clamped to `8..65536` | Initial capacity of each stream queue on the server. |
 | `DNS_FRAGMENT_STORE_CAPACITY` | `512` | clamped to `16..16384` | Capacity used to hold DNS tunnel fragments while waiting for full assembly. |
 | `SOCKS5_FRAGMENT_STORE_CAPACITY` | `1024` | clamped to `16..16384` | Capacity used to hold fragmented SOCKS5 setup payloads. |
+| `MAX_STREAMS_PER_SESSION` | `4096` | `16..65535` | Hard cap on concurrent data streams per session. The virtual control stream (stream 0) is always allowed and not counted. Limits memory under attacker-driven stream creation. |
+| `MAX_DNS_RESPONSE_BYTES` | `32768` | `512..65535` | Upper bound in bytes on the upstream DNS response the server will fragment and tunnel back to the client. Responses larger than this are dropped before fragmentation. |
 
 ### 3.5.4) 🍪 Session / Stream Lifecycle and Invalid Cookie Tracking
 
@@ -722,6 +753,16 @@ These settings are critical on the server:
 | Parameter | Sample Value | Allowed Values / Real Behavior | Full Explanation |
 | :--- | :--- | :--- | :--- |
 | `LOG_LEVEL` | `"INFO"` | usually `DEBUG`, `INFO`, `WARN`, `ERROR` | Server log level.<br>For normal production usage, `INFO` is usually enough.<br>For deep investigation of sessions, deferred workers, or ARQ behavior, temporarily use `DEBUG`. |
+| `LOG_TO_FILE` | `false` | `true` / `false` | Mirror log output to a rotating log file on disk. |
+| `LOG_DIR` | `""` | Directory path string | Directory where log files are written. Defaults to the binary's working directory when empty. |
+| `LOG_FILE_NAME` | `""` | Filename string | Base name for the log file (e.g. `stormdns-server.log`). Defaults to a generated name when empty. |
+| `STATS_REPORT_INTERVAL_SECONDS` | `60` | `1..3600` | How often (in seconds) the server logs aggregate tunnel statistics. |
+
+### 3.5.10) 📡 UDP Download Channel
+
+| Parameter | Sample Value | Allowed Values / Real Behavior | Full Explanation |
+| :--- | :--- | :--- | :--- |
+| `UDP_DOWNLOAD_PORT` | `0` | `0..65535` | UDP port the server uses to push download packets directly to the client, bypassing DNS encoding for lower latency.<br>Must match `UDP_DOWNLOAD_PORT` in the client config. `0` disables the channel. |
 
 ---
 
