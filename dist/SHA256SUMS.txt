@@ -1,0 +1,2 @@
+f972dd7756a1f0e165c834d2a8f077965919fce99f9cb045f508b5e771b71781  dist/StormDNS_Server_Linux_amd64
+e1f444576c86e01e93262134ad8c40ed162a793ca828295c0985920bce2fa2a4  dist/StormDNS_Client_Linux_amd64
