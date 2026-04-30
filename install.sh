@@ -665,6 +665,7 @@ parse_args() {
     && { echo "Error: invalid version tag: $TARGET_VERSION" >&2; exit 2; }
   [[ "$ACTION" == "uninstall" && -n "$TARGET_VERSION" ]] \
     && { echo "Error: --version and --uninstall cannot be combined." >&2; exit 2; }
+  return 0
 }
 
 resolve_install_dir() {
@@ -1313,7 +1314,11 @@ main() {
 
   case "$ACTION" in
     install|update)
-      [[ "$ROLE" == "server" ]] && do_install_server || do_install_client ;;
+      if [[ "$ROLE" == "server" ]]; then
+        do_install_server
+      else
+        do_install_client
+      fi ;;
     uninstall)
       detect_system 2>/dev/null || true
       do_uninstall "$ROLE" ;;
