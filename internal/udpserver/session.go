@@ -132,6 +132,7 @@ type sessionRuntimeView struct {
 	DownloadMTU         uint16
 	DownloadMTUBytes    int
 	MaxPackedBlocks     int
+	HasUDPDownload      bool // true when ClientUDPAddr is set; use udpDownloadMTUBytes for fragmentation
 }
 
 type closedSessionRecord struct {
@@ -675,6 +676,7 @@ func (r *sessionRecord) runtimeView() sessionRuntimeView {
 		DownloadMTU:         r.DownloadMTU,
 		DownloadMTUBytes:    r.DownloadMTUBytes,
 		MaxPackedBlocks:     r.MaxPackedBlocks,
+		HasUDPDownload:      r.ClientUDPAddr != nil,
 	}
 }
 
@@ -741,7 +743,11 @@ func (r *sessionRecord) getOrCreateStream(streamID uint16, arqConfig arq.Config,
 
 	delete(r.RecentlyClosed, streamID)
 
-	s := NewStreamServer(streamID, r.ID, arqConfig, localConn, r.DownloadMTUBytes, r.StreamQueueCap, logger)
+	mtu := r.DownloadMTUBytes
+	if r.ClientUDPAddr != nil {
+		mtu = udpDownloadMTUBytes
+	}
+	s := NewStreamServer(streamID, r.ID, arqConfig, localConn, mtu, r.StreamQueueCap, logger)
 	s.onClosed = r.onStreamClosed
 	r.Streams[streamID] = s
 

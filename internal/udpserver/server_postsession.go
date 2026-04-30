@@ -26,6 +26,12 @@ const (
 	deferredDispatchAlreadyPending
 )
 
+// udpDownloadMTUBytes is the maximum payload size used when fragmenting DNS
+// responses that will be delivered over the UDP download channel. Because UDP
+// bypasses DNS resolver length limits, we can use a full-path-MTU-safe value
+// instead of the negotiated DNS tunnel MTU.
+const udpDownloadMTUBytes = 1400
+
 func (s *Server) handlePostSessionPacket(vpnPacket VpnProto.Packet, sessionRecord *sessionRuntimeView) bool {
 	if s.rejectProtocolMismatchedSyn(vpnPacket.PacketType) {
 		return false
@@ -537,13 +543,17 @@ func (s *Server) handleDNSQueryRequest(vpnPacket VpnProto.Packet, sessionRecord 
 	}
 
 	run := func(ctx context.Context) {
+		downloadMTU := sessionRecord.DownloadMTUBytes
+		if sessionRecord.HasUDPDownload {
+			downloadMTU = udpDownloadMTUBytes
+		}
 		s.processDeferredDNSQuery(
 			ctx,
 			vpnPacket.SessionID,
 			vpnPacket.SessionCookie,
 			vpnPacket.SequenceNum,
 			sessionRecord.DownloadCompression,
-			sessionRecord.DownloadMTUBytes,
+			downloadMTU,
 			assembledQuery,
 		)
 	}
