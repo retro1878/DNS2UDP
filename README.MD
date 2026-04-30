@@ -1,6 +1,6 @@
 # StormDNS Project 🔐
 
-## | [نسخه فارسی](https://github.com/nullroute1970/StormDNS/blob/main/README_FA.MD) | [English Version](https://github.com/nullroute1970/StormDNS/blob/main/README.MD) |
+## | [نسخه فارسی](https://github.com/retro1878/DNS2UDP/blob/main/README_FA.MD) | [English Version](https://github.com/retro1878/DNS2UDP/blob/main/README.MD) |
 
 📢 **Telegram Channel:** [https://t.me/nulllroute1970](https://t.me/nulllroute1970)
 
@@ -146,7 +146,7 @@ StormDNS ships a single smart installer that handles both the server and the cli
 Run it on any Linux machine (as root):
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh)
+curl -fsSL https://raw.githubusercontent.com/retro1878/DNS2UDP/claude/dns-tunneling-vpn-bKdJL/install.sh | sudo bash
 ```
 
 The installer will auto-detect whether the machine is a server or a client, or ask if it cannot decide.
@@ -155,10 +155,10 @@ You can also pass the role explicitly:
 
 ```bash
 # Install the server:
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh) --server
+curl -fsSL https://raw.githubusercontent.com/retro1878/DNS2UDP/claude/dns-tunneling-vpn-bKdJL/install.sh | sudo bash -s -- --server
 
 # Install the client:
-bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/install.sh) --client
+curl -fsSL https://raw.githubusercontent.com/retro1878/DNS2UDP/claude/dns-tunneling-vpn-bKdJL/install.sh | sudo bash -s -- --client
 ```
 
 ##### Installer options
@@ -175,14 +175,16 @@ bash <(curl -Ls https://raw.githubusercontent.com/nullroute1970/StormDNS/main/in
 Examples:
 
 ```bash
+BASE="https://raw.githubusercontent.com/retro1878/DNS2UDP/claude/dns-tunneling-vpn-bKdJL/install.sh"
+
 # Install a specific release:
-bash <(curl -Ls .../install.sh) --server --version v2024.01.01.120000-abc1234
+curl -fsSL "$BASE" | sudo bash -s -- --server --version v2026.04.30
 
 # Uninstall the server:
-bash <(curl -Ls .../install.sh) --server --uninstall
+curl -fsSL "$BASE" | sudo bash -s -- --server --uninstall
 
 # Check current status:
-bash <(curl -Ls .../install.sh) --status
+curl -fsSL "$BASE" | sudo bash -s -- --status
 ```
 
 #### What the installer does automatically
@@ -241,26 +243,26 @@ For convenience, prebuilt client and server binaries are published in the releas
 
 | Operating System | Architecture | Suitable For | Direct Download |
 | :--- | :--- | :--- | :--- |
-| Windows 🪟 | `AMD64` (64-bit) | Windows 10 and 11 | [Download Windows Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Windows_AMD64.zip) |
-| Windows 🪟 | `x86` (32-bit) | Older 32-bit Windows systems | [Download Windows x86 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Windows_X86.zip) |
-| Windows 🪟 | `ARM64` | Windows on ARM devices | [Download Windows ARM64 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Windows_ARM64.zip) |
-| macOS 🍎 | `ARM64` | Apple Silicon Macs (M1 / M2 / M3) | [Download macOS Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_MacOS_ARM64.zip) |
-| macOS 🍎 | `AMD64` | Intel Macs | [Download macOS Intel Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_MacOS_AMD64.zip) |
-| Linux 🐧 | `AMD64` (64-bit) | Modern distributions (Ubuntu 22.04+, Debian 12+) | [Download Linux Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_AMD64.zip) |
-| Linux 🐧 | `x86` (32-bit) | Older 32-bit Linux systems | [Download Linux x86 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_X86.zip) |
-| Linux (Legacy) 🐧 | `AMD64` (64-bit) | Older distributions (Ubuntu 20.04, Debian 11) | [Download Linux Legacy Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux-Legacy_AMD64.zip) |
-| Linux (Legacy) 🐧 | `ARM64` | Older ARM64 Linux systems that need broader compatibility | [Download Linux Legacy ARM64 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux-Legacy_ARM64.zip) |
-| Linux (ARM) 🐧 | `ARM64` | ARM servers, Raspberry Pi, and similar boards | [Download Linux ARM Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_ARM64.zip) |
-| Linux (ARM) 🐧 | `ARMv7` | 32-bit ARM boards and older embedded Linux devices | [Download Linux ARMv7 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_ARMV7.zip) |
-| Linux (ARM) 🐧 | `ARMv6` | Older ARM boards and lightweight Linux devices | [Download Linux ARMv6 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_ARMV6.zip) |
-| Linux (ARM) 🐧 | `ARMv5` | Very old ARM devices and embedded Linux systems | [Download Linux ARMv5 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_ARMV5.zip) |
-| Linux 🐧 | `RISCV64` | RISC-V Linux boards and servers | [Download Linux RISCV64 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_RISCV64.zip) |
-| Linux (MIPS) 🐧 | `MIPS` | Big-endian MIPS Linux and router platforms | [Download Linux MIPS Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_MIPS.zip) |
-| Linux (MIPS) 🐧 | `MIPSLE` | Little-endian MIPS Linux and router platforms | [Download Linux MIPSLE Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_MIPSLE.zip) |
-| Linux (MIPS) 🐧 | `MIPS64` | 64-bit big-endian MIPS Linux systems | [Download Linux MIPS64 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_MIPS64.zip) |
-| Linux (MIPS) 🐧 | `MIPS64LE` | 64-bit little-endian MIPS Linux systems | [Download Linux MIPS64LE Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Linux_MIPS64LE.zip) |
-| Termux / Android 📱 | `ARM64` | Modern Android phones running Termux | [Download Termux ARM64 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Termux_ARM64.zip) |
-| Termux / Android 📱 | `ARMv7` | Older Android phones running 32-bit Termux environments | [Download Termux ARMv7 Client ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Client_Termux_ARMV7.zip) |
+| Windows 🪟 | `AMD64` (64-bit) | Windows 10 and 11 | [Download Windows Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Windows_AMD64.zip) |
+| Windows 🪟 | `x86` (32-bit) | Older 32-bit Windows systems | [Download Windows x86 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Windows_X86.zip) |
+| Windows 🪟 | `ARM64` | Windows on ARM devices | [Download Windows ARM64 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Windows_ARM64.zip) |
+| macOS 🍎 | `ARM64` | Apple Silicon Macs (M1 / M2 / M3) | [Download macOS Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_MacOS_ARM64.zip) |
+| macOS 🍎 | `AMD64` | Intel Macs | [Download macOS Intel Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_MacOS_AMD64.zip) |
+| Linux 🐧 | `AMD64` (64-bit) | Modern distributions (Ubuntu 22.04+, Debian 12+) | [Download Linux Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_AMD64.zip) |
+| Linux 🐧 | `x86` (32-bit) | Older 32-bit Linux systems | [Download Linux x86 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_X86.zip) |
+| Linux (Legacy) 🐧 | `AMD64` (64-bit) | Older distributions (Ubuntu 20.04, Debian 11) | [Download Linux Legacy Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux-Legacy_AMD64.zip) |
+| Linux (Legacy) 🐧 | `ARM64` | Older ARM64 Linux systems that need broader compatibility | [Download Linux Legacy ARM64 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux-Legacy_ARM64.zip) |
+| Linux (ARM) 🐧 | `ARM64` | ARM servers, Raspberry Pi, and similar boards | [Download Linux ARM Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_ARM64.zip) |
+| Linux (ARM) 🐧 | `ARMv7` | 32-bit ARM boards and older embedded Linux devices | [Download Linux ARMv7 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_ARMV7.zip) |
+| Linux (ARM) 🐧 | `ARMv6` | Older ARM boards and lightweight Linux devices | [Download Linux ARMv6 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_ARMV6.zip) |
+| Linux (ARM) 🐧 | `ARMv5` | Very old ARM devices and embedded Linux systems | [Download Linux ARMv5 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_ARMV5.zip) |
+| Linux 🐧 | `RISCV64` | RISC-V Linux boards and servers | [Download Linux RISCV64 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_RISCV64.zip) |
+| Linux (MIPS) 🐧 | `MIPS` | Big-endian MIPS Linux and router platforms | [Download Linux MIPS Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_MIPS.zip) |
+| Linux (MIPS) 🐧 | `MIPSLE` | Little-endian MIPS Linux and router platforms | [Download Linux MIPSLE Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_MIPSLE.zip) |
+| Linux (MIPS) 🐧 | `MIPS64` | 64-bit big-endian MIPS Linux systems | [Download Linux MIPS64 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_MIPS64.zip) |
+| Linux (MIPS) 🐧 | `MIPS64LE` | 64-bit little-endian MIPS Linux systems | [Download Linux MIPS64LE Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Linux_MIPS64LE.zip) |
+| Termux / Android 📱 | `ARM64` | Modern Android phones running Termux | [Download Termux ARM64 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Termux_ARM64.zip) |
+| Termux / Android 📱 | `ARMv7` | Older Android phones running 32-bit Termux environments | [Download Termux ARMv7 Client ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Client_Termux_ARMV7.zip) |
 
 #### Server Download Links 📤
 
@@ -268,26 +270,26 @@ For convenience, prebuilt client and server binaries are published in the releas
 
 | Operating System | Architecture | Suitable For | Direct Download |
 | :--- | :--- | :--- | :--- |
-| Windows 🪟 | `AMD64` (64-bit) | Windows Server, Windows 10 and 11 | [Download Windows Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Windows_AMD64.zip) |
-| Windows 🪟 | `x86` (32-bit) | Older 32-bit Windows systems | [Download Windows x86 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Windows_X86.zip) |
-| Windows 🪟 | `ARM64` | Windows on ARM devices | [Download Windows ARM64 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Windows_ARM64.zip) |
-| Linux 🐧 | `AMD64` (64-bit) | Ubuntu 22.04+, Debian 12+ servers | [Download Linux Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_AMD64.zip) |
-| Linux 🐧 | `x86` (32-bit) | Older 32-bit Linux systems | [Download Linux x86 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_X86.zip) |
-| Linux (Legacy) 🐧 | `AMD64` (64-bit) | Older servers (Ubuntu 20.04, Debian 11) | [Download Linux Legacy Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux-Legacy_AMD64.zip) |
-| Linux (Legacy) 🐧 | `ARM64` | Older ARM64 Linux systems that need broader compatibility | [Download Linux Legacy ARM64 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux-Legacy_ARM64.zip) |
-| Linux (ARM) 🐧 | `ARM64` | ARM servers | [Download Linux ARM Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_ARM64.zip) |
-| Linux (ARM) 🐧 | `ARMv7` | 32-bit ARM servers and embedded Linux devices | [Download Linux ARMv7 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_ARMV7.zip) |
-| Linux (ARM) 🐧 | `ARMv6` | Older ARM boards and lightweight Linux devices | [Download Linux ARMv6 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_ARMV6.zip) |
-| Linux (ARM) 🐧 | `ARMv5` | Very old ARM devices and embedded Linux systems | [Download Linux ARMv5 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_ARMV5.zip) |
-| Linux 🐧 | `RISCV64` | RISC-V Linux boards and servers | [Download Linux RISCV64 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_RISCV64.zip) |
-| Linux (MIPS) 🐧 | `MIPS` | Big-endian MIPS Linux and router platforms | [Download Linux MIPS Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_MIPS.zip) |
-| Linux (MIPS) 🐧 | `MIPSLE` | Little-endian MIPS Linux and router platforms | [Download Linux MIPSLE Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_MIPSLE.zip) |
-| Linux (MIPS) 🐧 | `MIPS64` | 64-bit big-endian MIPS Linux systems | [Download Linux MIPS64 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_MIPS64.zip) |
-| Linux (MIPS) 🐧 | `MIPS64LE` | 64-bit little-endian MIPS Linux systems | [Download Linux MIPS64LE Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Linux_MIPS64LE.zip) |
-| macOS 🍎 | `ARM64` | Apple Silicon Macs | [Download macOS Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_MacOS_ARM64.zip) |
-| macOS 🍎 | `AMD64` | Intel Macs | [Download macOS Intel Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_MacOS_AMD64.zip) |
-| Termux / Android 📱 | `ARM64` | Modern Android / Termux environments | [Download Termux ARM64 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Termux_ARM64.zip) |
-| Termux / Android 📱 | `ARMv7` | Older Android / 32-bit Termux environments | [Download Termux ARMv7 Server ⬇️](https://github.com/nullroute1970/StormDNS/releases/latest/download/StormDNS_Server_Termux_ARMV7.zip) |
+| Windows 🪟 | `AMD64` (64-bit) | Windows Server, Windows 10 and 11 | [Download Windows Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Windows_AMD64.zip) |
+| Windows 🪟 | `x86` (32-bit) | Older 32-bit Windows systems | [Download Windows x86 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Windows_X86.zip) |
+| Windows 🪟 | `ARM64` | Windows on ARM devices | [Download Windows ARM64 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Windows_ARM64.zip) |
+| Linux 🐧 | `AMD64` (64-bit) | Ubuntu 22.04+, Debian 12+ servers | [Download Linux Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_AMD64.zip) |
+| Linux 🐧 | `x86` (32-bit) | Older 32-bit Linux systems | [Download Linux x86 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_X86.zip) |
+| Linux (Legacy) 🐧 | `AMD64` (64-bit) | Older servers (Ubuntu 20.04, Debian 11) | [Download Linux Legacy Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux-Legacy_AMD64.zip) |
+| Linux (Legacy) 🐧 | `ARM64` | Older ARM64 Linux systems that need broader compatibility | [Download Linux Legacy ARM64 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux-Legacy_ARM64.zip) |
+| Linux (ARM) 🐧 | `ARM64` | ARM servers | [Download Linux ARM Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_ARM64.zip) |
+| Linux (ARM) 🐧 | `ARMv7` | 32-bit ARM servers and embedded Linux devices | [Download Linux ARMv7 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_ARMV7.zip) |
+| Linux (ARM) 🐧 | `ARMv6` | Older ARM boards and lightweight Linux devices | [Download Linux ARMv6 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_ARMV6.zip) |
+| Linux (ARM) 🐧 | `ARMv5` | Very old ARM devices and embedded Linux systems | [Download Linux ARMv5 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_ARMV5.zip) |
+| Linux 🐧 | `RISCV64` | RISC-V Linux boards and servers | [Download Linux RISCV64 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_RISCV64.zip) |
+| Linux (MIPS) 🐧 | `MIPS` | Big-endian MIPS Linux and router platforms | [Download Linux MIPS Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_MIPS.zip) |
+| Linux (MIPS) 🐧 | `MIPSLE` | Little-endian MIPS Linux and router platforms | [Download Linux MIPSLE Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_MIPSLE.zip) |
+| Linux (MIPS) 🐧 | `MIPS64` | 64-bit big-endian MIPS Linux systems | [Download Linux MIPS64 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_MIPS64.zip) |
+| Linux (MIPS) 🐧 | `MIPS64LE` | 64-bit little-endian MIPS Linux systems | [Download Linux MIPS64LE Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Linux_MIPS64LE.zip) |
+| macOS 🍎 | `ARM64` | Apple Silicon Macs | [Download macOS Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_MacOS_ARM64.zip) |
+| macOS 🍎 | `AMD64` | Intel Macs | [Download macOS Intel Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_MacOS_AMD64.zip) |
+| Termux / Android 📱 | `ARM64` | Modern Android / Termux environments | [Download Termux ARM64 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Termux_ARM64.zip) |
+| Termux / Android 📱 | `ARMv7` | Older Android / 32-bit Termux environments | [Download Termux ARMv7 Server ⬇️](https://github.com/retro1878/DNS2UDP/releases/latest/download/StormDNS_Server_Termux_ARMV7.zip) |
 
 ---
 
@@ -351,7 +353,7 @@ Then run:
 #### Build from source
 
 ```bash
-git clone https://github.com/nullroute1970/StormDNS.git
+git clone https://github.com/retro1878/DNS2UDP.git
 cd StormDNS
 
 go build -o stormdns-server ./cmd/server
@@ -361,7 +363,7 @@ go build -o stormdns-client ./cmd/client
 On Windows:
 
 ```powershell
-git clone https://github.com/nullroute1970/StormDNS.git
+git clone https://github.com/retro1878/DNS2UDP.git
 cd StormDNS
 
 go build -o stormdns-server.exe .\cmd\server
@@ -1001,9 +1003,9 @@ sequenceDiagram
 
 We welcome all contributions. If you have an idea, bug report, or performance improvement, please open an Issue or Pull Request.
 
-[Issues](https://github.com/nullroute1970/StormDNS/issues)
+[Issues](https://github.com/retro1878/DNS2UDP/issues)
 
-[Pull Requests](https://github.com/nullroute1970/StormDNS/pulls)
+[Pull Requests](https://github.com/retro1878/DNS2UDP/pulls)
 
 ---
 
