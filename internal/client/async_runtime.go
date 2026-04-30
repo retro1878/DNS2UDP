@@ -864,11 +864,19 @@ func (c *Client) asyncUDPProcessorWorker(ctx context.Context, id int) {
 func (c *Client) handleRawUDPDownloadPacket(data []byte) {
 	decrypted, err := c.codec.Decrypt(data)
 	if err != nil {
+		n := c.udpRxDecryptErr.Add(1)
+		if n <= 5 || n%100 == 0 {
+			c.log.Warnf("📡 <yellow>UDP download: decrypt error #%d (wrong key or stale session?): %v</yellow>", n, err)
+		}
 		return
 	}
 	vpnPacket, err := VpnProto.Parse(decrypted)
 	if err != nil {
 		return
+	}
+	total := c.udpRxTotal.Add(1)
+	if total == 1 || total%500 == 0 {
+		c.log.Infof("📡 <green>UDP download: %d packets received via UDP channel</green>", total)
 	}
 	c.NotifyPacket(vpnPacket.PacketType, true)
 	if handled := c.preprocessInboundPacket(vpnPacket); handled {

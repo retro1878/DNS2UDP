@@ -99,6 +99,10 @@ type Client struct {
 	rxDroppedPackets    atomic.Uint64
 	lastRXDropLogUnix   atomic.Int64
 
+	// UDP download channel counters
+	udpRxTotal      atomic.Uint64
+	udpRxDecryptErr atomic.Uint64
+
 	// Traffic byte counters (per-session, reset on resetRuntimeBindings)
 	txTotalBytes atomic.Uint64
 	rxTotalBytes atomic.Uint64

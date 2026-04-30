@@ -288,8 +288,13 @@ func (s *Server) serveQueuedOrPong(questionPacket []byte, requestName string, re
 
 	sessionID := record.ID
 
-	if pkt, ok := s.dequeueSessionResponse(sessionID, now); ok {
-		return s.buildSessionVPNResponse(questionPacket, requestName, record, *pkt)
+	// When the UDP download channel is active, all data is delivered via UDP.
+	// Keep the DNS path as pure polling (PONG-only) so the UDP drain worker
+	// owns the queue and data is never split across channels.
+	if !record.HasUDPDownload {
+		if pkt, ok := s.dequeueSessionResponse(sessionID, now); ok {
+			return s.buildSessionVPNResponse(questionPacket, requestName, record, *pkt)
+		}
 	}
 
 	payload := s.nextPongPayload()
