@@ -129,19 +129,41 @@ detect_system() {
 }
 
 install_deps() {
-  local pkgs=(lsof net-tools wget unzip curl ca-certificates iproute2 procps irqbalance)
-  command -v dig      >/dev/null 2>&1 || pkgs+=(dnsutils)
-  command -v nslookup >/dev/null 2>&1 || pkgs+=(dnsutils)
+  # Critical tools the installer relies on.
+  local critical=(curl unzip ca-certificates)
+  # Nice-to-have tools (missing ones are skipped gracefully).
+  local extras=(lsof net-tools wget iproute2 procps irqbalance)
+  command -v dig      >/dev/null 2>&1 || extras+=(dnsutils)
+  command -v nslookup >/dev/null 2>&1 || extras+=(dnsutils)
+
   spin_start "Installing system dependencies…"
   case "$PM" in
-    apt) apt-get update -y >/dev/null 2>&1
-         apt-get install -y "${pkgs[@]}" >/dev/null 2>&1 ;;
-    dnf) local p=("${pkgs[@]/iproute2/iproute}"); p=("${p[@]/dnsutils/bind-utils}")
-         dnf -y install "${p[@]}" >/dev/null 2>&1 ;;
-    yum) local p=("${pkgs[@]/iproute2/iproute}"); p=("${p[@]/dnsutils/bind-utils}")
-         yum -y install "${p[@]}" >/dev/null 2>&1 ;;
+    apt)
+      apt-get update -y >/dev/null 2>&1 || true
+      apt-get install -y "${critical[@]}" "${extras[@]}" >/dev/null 2>&1 || \
+        apt-get install -y "${critical[@]}" >/dev/null 2>&1 || true
+      ;;
+    dnf)
+      local c=("${critical[@]/ca-certificates/ca-certs}")
+      local e=("${extras[@]/iproute2/iproute}"); e=("${e[@]/dnsutils/bind-utils}")
+      dnf -y install "${c[@]}" "${e[@]}" >/dev/null 2>&1 || \
+        dnf -y install "${c[@]}" >/dev/null 2>&1 || true
+      ;;
+    yum)
+      local c=("${critical[@]/ca-certificates/ca-certs}")
+      local e=("${extras[@]/iproute2/iproute}"); e=("${e[@]/dnsutils/bind-utils}")
+      yum -y install "${c[@]}" "${e[@]}" >/dev/null 2>&1 || \
+        yum -y install "${c[@]}" >/dev/null 2>&1 || true
+      ;;
   esac
   spin_stop
+
+  # Verify the tools the installer itself needs are present.
+  local missing=()
+  for t in curl unzip; do
+    command -v "$t" >/dev/null 2>&1 || missing+=("$t")
+  done
+  [[ ${#missing[@]} -eq 0 ]] || err "Required tools missing after install: ${missing[*]}\nInstall them manually and re-run."
 }
 
 enable_irqbalance() {
