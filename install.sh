@@ -1166,8 +1166,8 @@ do_install_client() {
 
   # Startup mode
   echo
-  local startup_idx=1
-  ask_menu startup_idx "Startup mode" 1 \
+  local startup_idx=0
+  ask_menu startup_idx "Startup mode" 0 \
     "resolvers — full scan on each start (slow, most reliable)" \
     "logs      — reuse last-known resolvers (fast, recommended for systemd)" \
     "ask       — prompt on startup (interactive terminals only)"
