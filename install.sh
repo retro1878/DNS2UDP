@@ -56,14 +56,14 @@ spin_start() {
   local -a f=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
   { local i=0
     while true; do
-      printf "\r  ${C}%s${NC}  %s   " "${f[$((i%10))]}" "$msg"
+      printf "\r  ${C}%s${NC}  %s   " "${f[$((i%10))]}" "$msg" >/dev/tty
       sleep 0.1; (( i++ )) || true
     done; } &
   _SPINNER_PID=$!
 }
 spin_stop() {
   [[ -n "${_SPINNER_PID:-}" ]] && { kill "$_SPINNER_PID" 2>/dev/null; wait "$_SPINNER_PID" 2>/dev/null || true; }
-  printf "\r\033[K"; _SPINNER_PID=""
+  printf "\r\033[K" >/dev/tty; _SPINNER_PID=""
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
