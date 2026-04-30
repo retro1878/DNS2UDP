@@ -11,8 +11,10 @@ IFS=$'\n\t'
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════════════════
 readonly INSTALLER_VER="2.0"
-readonly GITHUB_REPO="nullroute1970/StormDNS"
+readonly GITHUB_REPO="retro1878/DNS2UDP"
 readonly GITHUB_BASE="https://github.com/${GITHUB_REPO}"
+readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}"
+readonly DIST_BRANCH="claude/dns-tunneling-vpn-bKdJL"
 readonly SERVER_SVC="stormdns"
 readonly CLIENT_SVC="stormdns-client"
 readonly SERVER_UNIT="/etc/systemd/system/${SERVER_SVC}.service"
@@ -250,6 +252,7 @@ acquire_binary() {
     done_ "Using local binary: $BINARY"; return 0
   fi
 
+  # ── Try GitHub Release zip first ────────────────────────────────────────────
   local url
   if [[ -n "$version" ]]; then
     url="${GITHUB_BASE}/releases/download/${version}/${prefix}.zip"
@@ -260,24 +263,43 @@ acquire_binary() {
   _DOWNLOAD_DIR="$(mktemp -d /tmp/stormdns_dl.XXXXXX)"
   local zip="${_DOWNLOAD_DIR}/pkg.zip"
 
-  spin_start "Downloading ${role} binary from GitHub…"
-  if ! curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 \
-            -o "$zip" "$url" 2>/dev/null; then
-    spin_stop; warn "curl failed — retrying with wget…"
-    wget -qO "$zip" "$url" || err "Download failed. URL: ${url}"
+  local _dl_ok=0
+  spin_start "Downloading ${role} binary from GitHub Releases…"
+  if curl -fL --retry 2 --retry-delay 3 --connect-timeout 20 \
+           -o "$zip" "$url" 2>/dev/null && [[ -s "$zip" ]]; then
+    _dl_ok=1
   fi
-  spin_stop; [[ -s "$zip" ]] || err "Downloaded archive is empty."
+  spin_stop
+
+  # ── Fallback: direct binary from dist/ on branch ─────────────────────────
+  if [[ $_dl_ok -eq 0 ]]; then
+    warn "No Release found — falling back to pre-built binary in dist/ branch."
+    local raw_name; raw_name="$(basename "$prefix")"   # e.g. StormDNS_Client_Linux_amd64
+    local raw_url="${GITHUB_RAW}/${DIST_BRANCH}/dist/${raw_name}"
+    local bin_out="${_DOWNLOAD_DIR}/${raw_name}"
+    spin_start "Downloading ${role} binary from dist/ branch…"
+    if curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 \
+             -o "$bin_out" "$raw_url" 2>/dev/null && [[ -s "$bin_out" ]]; then
+      spin_stop
+      local dest="${INSTALL_DIR}/${raw_name}"
+      cp "$bin_out" "$dest"; chmod +x "$dest"
+      BINARY="$dest"
+      done_ "Binary ready: $(basename "$BINARY")"; return 0
+    fi
+    spin_stop
+    err "Download failed from both GitHub Releases and dist/ branch.\nRelease URL: ${url}\nFallback URL: ${raw_url}"
+  fi
 
   spin_start "Extracting archive…"
   unzip -q -o "$zip" -d "$INSTALL_DIR" >/dev/null 2>&1; spin_stop
 
-  shopt -s nullglob; local found=("${prefix}_v"*); shopt -u nullglob
+  shopt -s nullglob; local found=("${INSTALL_DIR}/${prefix}_v"* "${INSTALL_DIR}/$(basename "$prefix")"*); shopt -u nullglob
   [[ ${#found[@]} -gt 0 ]] || err "Binary not found after extraction."
   BINARY="${found[0]}"; chmod +x "$BINARY"
 
-  for b in "${prefix}_v"*; do [[ "$b" == "$BINARY" ]] || rm -f -- "$b"; done
+  for b in "${INSTALL_DIR}/${prefix}_v"*; do [[ "$b" == "$BINARY" ]] || rm -f -- "$b"; done
   rm -f ./*.spec 2>/dev/null || true
-  done_ "Binary ready: $BINARY"
+  done_ "Binary ready: $(basename "$BINARY")"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
