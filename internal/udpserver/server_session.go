@@ -233,6 +233,7 @@ func (s *Server) cleanupClosedSession(sessionID uint8, record *sessionRecord) {
 	if s == nil || sessionID == 0 {
 		return
 	}
+	s.clearUDPActiveRecord(sessionID) // improvement 4
 	s.clearDeferredPacketsForSession(sessionID)
 	s.removeSOCKS5SynFragmentsForSession(sessionID)
 	if record != nil {
@@ -725,6 +726,7 @@ func (s *Server) handleSessionInitRequest(questionPacket []byte, decision domain
 		port := int(binary.BigEndian.Uint16(vpnPacket.Payload[14:16]))
 		if ip != nil && port > 0 {
 			record.ClientUDPAddr = &net.UDPAddr{IP: ip, Port: port}
+			s.setUDPActiveRecord(record.ID, record) // improvement 4
 		}
 	}
 

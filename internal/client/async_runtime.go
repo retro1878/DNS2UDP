@@ -339,10 +339,18 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 	c.asyncWG.Add(1)
 	go c.asyncStreamCleanupWorker(runtimeCtx)
 
-	// 10. UDP download reader (if configured).
+	// 10. UDP download reader + dedicated processor pool (if configured).
+	// Improvement 1: dedicated workers prevent UDP bulk data from starving
+	// DNS control packets handled by the main asyncProcessorWorker pool.
 	if c.udpDownConn != nil {
 		c.asyncWG.Add(1)
 		go c.asyncUDPDownloadReaderWorker(runtimeCtx)
+
+		udpWorkers := max(1, c.tunnelProcessWorkers)
+		for i := 0; i < udpWorkers; i++ {
+			c.asyncWG.Add(1)
+			go c.asyncUDPProcessorWorker(runtimeCtx, i)
+		}
 	}
 
 	// 11. Resolver timeout/health runtime.
@@ -799,6 +807,9 @@ func (c *Client) handleInboundPacket(data []byte, addr *net.UDPAddr, localAddr s
 
 const minRawUDPDownloadSize = 4
 
+// asyncUDPDownloadReaderWorker reads raw UDP packets from the UDP download
+// socket and dispatches them to the dedicated udpRxChannel (improvement 1),
+// keeping them isolated from DNS response traffic in rxChannel.
 func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
 	defer c.asyncWG.Done()
 	c.log.Debugf("\U0001F4E1 <green>UDP Download Reader started</green>")
@@ -823,11 +834,29 @@ func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
 			}
 			c.rxTotalBytes.Add(uint64(n))
 			select {
-			case c.rxChannel <- asyncReadPacket{data: buf[:n], rawUDP: true}:
+			case c.udpRxChannel <- asyncReadPacket{data: buf[:n], rawUDP: true}:
 			default:
 				c.udpBufferPool.Put(buf)
 				c.onRXDrop(nil)
 			}
+		}
+	}
+}
+
+// asyncUDPProcessorWorker drains udpRxChannel and handles raw UDP download
+// packets. Running in a separate pool from asyncProcessorWorker prevents
+// bulk UDP data from occupying all processor slots and starving DNS ACKs
+// and control packets (improvement 1).
+func (c *Client) asyncUDPProcessorWorker(ctx context.Context, id int) {
+	defer c.asyncWG.Done()
+	c.log.Debugf("\U0001F4E1 <green>UDP Processor Worker <cyan>#%d</cyan> started</green>", id)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case pkt := <-c.udpRxChannel:
+			c.handleRawUDPDownloadPacket(pkt.data)
+			c.udpBufferPool.Put(pkt.data[:cap(pkt.data)])
 		}
 	}
 }

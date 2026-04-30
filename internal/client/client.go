@@ -111,6 +111,7 @@ type Client struct {
 	txChannel            chan rawOutboundTask
 	encodedTXChannel     chan encodedOutboundTask
 	rxChannel            chan asyncReadPacket
+	udpRxChannel         chan asyncReadPacket // improvement 1: dedicated UDP download channel
 	tunnelRX_TX_Workers  int
 	tunnelProcessWorkers int
 	tunnelPacketTimeout  time.Duration
@@ -354,6 +355,7 @@ func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Cl
 		txChannel:             make(chan rawOutboundTask, cfg.TXChannelSize),
 		encodedTXChannel:      make(chan encodedOutboundTask, max(24, cfg.RX_TX_Workers*24)),
 		rxChannel:             make(chan asyncReadPacket, cfg.RXChannelSize),
+		udpRxChannel:          make(chan asyncReadPacket, max(16, cfg.RXChannelSize/4)),
 		active_streams:        make(map[uint16]*Stream_client),
 		recentlyClosedStreams: make(map[uint16]time.Time),
 		txSignal:              make(chan struct{}, 1),

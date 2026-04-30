@@ -96,6 +96,14 @@ type Server struct {
 
 	udpDownConn   *net.UDPConn
 	udpSendSignal chan struct{}
+
+	// Improvement 3: reusable drain buffer — only touched by runUDPSender goroutine.
+	drainBuf []*sessionRecord
+
+	// Improvement 4: active UDP session index — tracks sessions that have a client UDP
+	// address so drainAllUDPSessions can skip the global session lock and idle slots.
+	udpActiveMu      sync.RWMutex
+	udpActiveRecords [maxServerSessionID + 1]*sessionRecord
 }
 
 // Stats is a point-in-time snapshot of operational counters maintained by the
