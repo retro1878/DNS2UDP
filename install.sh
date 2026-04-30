@@ -281,9 +281,18 @@ acquire_binary() {
     if curl -fL --retry 3 --retry-delay 3 --connect-timeout 20 \
              -o "$bin_out" "$raw_url" 2>/dev/null && [[ -s "$bin_out" ]]; then
       spin_stop
-      local dest="${INSTALL_DIR}/${raw_name}"
-      cp "$bin_out" "$dest"; chmod +x "$dest"
-      BINARY="$dest"
+      cp "$bin_out" "${INSTALL_DIR}/${raw_name}"; chmod +x "${INSTALL_DIR}/${raw_name}"
+      BINARY="${INSTALL_DIR}/${raw_name}"
+
+      # Also fetch the config template files that a Release zip would have provided.
+      local cfg_base="${GITHUB_RAW}/${DIST_BRANCH}/dist"
+      if [[ "$role" == "Server" ]]; then
+        curl -fsSL "${cfg_base}/server_config.toml" -o "${INSTALL_DIR}/server_config.toml" 2>/dev/null || true
+      else
+        curl -fsSL "${cfg_base}/client_config.toml"  -o "${INSTALL_DIR}/client_config.toml"  2>/dev/null || true
+        curl -fsSL "${cfg_base}/client_resolvers.txt" -o "${INSTALL_DIR}/client_resolvers.txt" 2>/dev/null || true
+      fi
+
       done_ "Binary ready: $(basename "$BINARY")"; return 0
     fi
     spin_stop
