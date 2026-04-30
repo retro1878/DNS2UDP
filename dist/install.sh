@@ -270,7 +270,7 @@ acquire_binary() {
 
   shopt -s nullglob; local existing=("${prefix}_v"*); shopt -u nullglob
   if [[ ${#existing[@]} -gt 0 ]]; then
-    BINARY="${existing[0]}"; chmod +x "$BINARY"
+    BINARY="$(basename "${existing[0]}")"; chmod +x "$BINARY"
     done_ "Using local binary: $BINARY"; return 0
   fi
 
@@ -296,7 +296,7 @@ acquire_binary() {
   # ── Fallback: direct binary from dist/ on branch ─────────────────────────
   if [[ $_dl_ok -eq 0 ]]; then
     warn "No Release found — falling back to pre-built binary in dist/ branch."
-    local raw_name; raw_name="$(basename "$prefix")"   # e.g. StormDNS_Client_Linux_amd64
+    local raw_name; raw_name="$(basename "$prefix")"
     local raw_url="${GITHUB_RAW}/${DIST_BRANCH}/dist/${raw_name}"
     local bin_out="${_DOWNLOAD_DIR}/${raw_name}"
     spin_start "Downloading ${role} binary from dist/ branch…"
@@ -304,7 +304,7 @@ acquire_binary() {
              -o "$bin_out" "$raw_url" 2>/dev/null && [[ -s "$bin_out" ]]; then
       spin_stop
       cp "$bin_out" "${INSTALL_DIR}/${raw_name}"; chmod +x "${INSTALL_DIR}/${raw_name}"
-      BINARY="${INSTALL_DIR}/${raw_name}"
+      BINARY="${raw_name}"
 
       # Also fetch the config template files that a Release zip would have provided.
       local cfg_base="${GITHUB_RAW}/${DIST_BRANCH}/dist"
@@ -315,7 +315,7 @@ acquire_binary() {
         curl -fsSL "${cfg_base}/client_resolvers.txt" -o "${INSTALL_DIR}/client_resolvers.txt" 2>/dev/null || true
       fi
 
-      done_ "Binary ready: $(basename "$BINARY")"; return 0
+      done_ "Binary ready: $BINARY"; return 0
     fi
     spin_stop
     err "Download failed from both GitHub Releases and dist/ branch.\nRelease URL: ${url}\nFallback URL: ${raw_url}"
@@ -326,11 +326,11 @@ acquire_binary() {
 
   shopt -s nullglob; local found=("${INSTALL_DIR}/${prefix}_v"* "${INSTALL_DIR}/$(basename "$prefix")"*); shopt -u nullglob
   [[ ${#found[@]} -gt 0 ]] || err "Binary not found after extraction."
-  BINARY="${found[0]}"; chmod +x "$BINARY"
+  BINARY="$(basename "${found[0]}")"; chmod +x "${INSTALL_DIR}/${BINARY}"
 
-  for b in "${INSTALL_DIR}/${prefix}_v"*; do [[ "$b" == "$BINARY" ]] || rm -f -- "$b"; done
+  for b in "${INSTALL_DIR}/${prefix}_v"*; do [[ "${INSTALL_DIR}/$(basename "$b")" == "${INSTALL_DIR}/${BINARY}" ]] || rm -f -- "$b"; done
   rm -f ./*.spec 2>/dev/null || true
-  done_ "Binary ready: $(basename "$BINARY")"
+  done_ "Binary ready: $BINARY"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
