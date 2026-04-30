@@ -340,7 +340,7 @@ jobs:
           cp client_resolvers.simple dist/client_resolvers.txt || true
           cp server_config.toml.simple dist/server_config.toml || true
           if [[ "${{ matrix.go_os }}" == "linux" ]]; then
-            cp client_linux_install.sh dist/client_linux_install.sh || true
+            cp install.sh dist/install.sh || true
           fi
 
       - name: Prepare smoke-test config
@@ -624,7 +624,7 @@ jobs:
           CLIENT_FILES=( "${CLIENT_EXE_NAME}" "${CLIENT_TOML}" "${CLIENT_RESOLVERS}" )
           [ -f "${CLIENT_README_EN}" ] && CLIENT_FILES+=( "${CLIENT_README_EN}" )
           [ -f "${CLIENT_README_FA}" ] && CLIENT_FILES+=( "${CLIENT_README_FA}" )
-          [ -f "client_linux_install.sh" ] && CLIENT_FILES+=( "client_linux_install.sh" )
+          [ -f "install.sh" ] && CLIENT_FILES+=( "install.sh" )
 
           zip -j "${CLIENT_ZIP}" "${CLIENT_FILES[@]}" || true
           tar -czf "${CLIENT_TAR}" "${CLIENT_FILES[@]}" || true
