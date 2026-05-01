@@ -361,6 +361,7 @@ func (s *Server) Run(ctx context.Context) error {
 			s.cfg.UDPDownloadPort,
 		)
 		go s.runUDPSender(runCtx)
+		go s.runUDPReceiver(runCtx)
 	}
 
 	reqCh := make(chan request, s.cfg.MaxConcurrentRequests)

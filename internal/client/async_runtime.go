@@ -820,7 +820,7 @@ func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
 			return
 		default:
 			buf := c.udpBufferPool.Get().([]byte)
-			n, _, err := conn.ReadFromUDP(buf)
+			n, addr, err := conn.ReadFromUDP(buf)
 			if err != nil {
 				c.udpBufferPool.Put(buf)
 				if ctx.Err() != nil {
@@ -831,6 +831,9 @@ func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
 			if n < minRawUDPDownloadSize {
 				c.udpBufferPool.Put(buf)
 				continue
+			}
+			if c.serverUDPAddr.Load() == nil && addr != nil {
+				c.serverUDPAddr.Store(addr)
 			}
 			c.rxTotalBytes.Add(uint64(n))
 			select {

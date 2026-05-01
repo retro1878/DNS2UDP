@@ -9,6 +9,7 @@ package client
 
 import (
 	"context"
+	"net"
 	"sort"
 	"time"
 
@@ -211,6 +212,25 @@ dispatchLoop:
 				return
 			}
 			continue
+		}
+
+		// Fast ACK path: send DATA_ACK and DATA_NACK directly over the UDP
+		// reverse channel to avoid the 100-300ms DNS query RTT.
+		if (peekedItem.PacketType == Enums.PACKET_STREAM_DATA_ACK ||
+			peekedItem.PacketType == Enums.PACKET_STREAM_DATA_NACK) &&
+			c.udpDownConn != nil {
+			serverAddr := c.serverUDPAddr.Load()
+			if serverAddr != nil {
+				if c.trySendACKViaUDP(peekedItem, selectedStreamID, serverAddr) {
+					// Pop and release - done via UDP, skip DNS path.
+					if selected != nil {
+						if item, _, ok := selected.PopNextTXPacket(); ok && item != nil {
+							selected.ReleaseTXPacket(item)
+						}
+					}
+					continue dispatchLoop
+				}
+			}
 		}
 
 		conns := c.selectTargetConnections(peekedItem.PacketType, selectedStreamID)
@@ -423,4 +443,34 @@ dispatchLoop:
 			return
 		}
 	}
+}
+
+// trySendACKViaUDP sends a DATA_ACK or DATA_NACK packet directly over the UDP
+// reverse channel to the server, bypassing the DNS query path. Returns true on
+// success, false if the packet could not be sent (caller should fall back to DNS).
+func (c *Client) trySendACKViaUDP(pkt *clientStreamTXPacket, streamID uint16, serverAddr *net.UDPAddr) bool {
+	if c.udpDownConn == nil || pkt == nil || serverAddr == nil {
+		return false
+	}
+	raw, err := VpnProto.BuildRaw(VpnProto.BuildOptions{
+		SessionID:     c.sessionID,
+		SessionCookie: c.sessionCookie,
+		PacketType:    pkt.PacketType,
+		StreamID:      streamID,
+		SequenceNum:   pkt.SequenceNum,
+		FragmentID:    pkt.FragmentID,
+		TotalFragments: pkt.TotalFragments,
+		// No compression for tiny ACK/NACK packets.
+		CompressionType: 0,
+		Payload:         pkt.Payload,
+	})
+	if err != nil {
+		return false
+	}
+	encrypted, err := c.codec.Encrypt(raw)
+	if err != nil {
+		return false
+	}
+	_, err = c.udpDownConn.WriteToUDP(encrypted, serverAddr)
+	return err == nil
 }

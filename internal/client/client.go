@@ -99,6 +99,11 @@ type Client struct {
 	rxDroppedPackets    atomic.Uint64
 	lastRXDropLogUnix   atomic.Int64
 
+	// UDP reverse channel: address of the server's UDP download socket,
+	// captured from the first inbound UDP packet so ACKs/NACKs can be sent
+	// back without going through DNS.
+	serverUDPAddr atomic.Pointer[net.UDPAddr]
+
 	// UDP download channel counters
 	udpRxTotal      atomic.Uint64
 	udpRxDecryptErr atomic.Uint64

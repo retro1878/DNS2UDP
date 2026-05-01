@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	Enums "stormdns-go/internal/enums"
 	VpnProto "stormdns-go/internal/vpnproto"
 )
 
@@ -125,6 +126,70 @@ func (s *Server) sendRawVPNPacketUDP(record *sessionRecord, pkt *VpnProto.Packet
 		return false
 	}
 	return true
+}
+
+// runUDPReceiver reads client-originated UDP packets (ACKs, NACKs) from the
+// same socket the server uses to send download data, and dispatches them
+// through the normal post-session handling path.
+func (s *Server) runUDPReceiver(ctx context.Context) {
+	conn := s.udpDownConn
+	if conn == nil {
+		return
+	}
+	buf := make([]byte, 65535)
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
+		n, _, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			continue
+		}
+		if n < 4 {
+			continue
+		}
+		pktData := make([]byte, n)
+		copy(pktData, buf[:n])
+		s.handleClientUDPUplink(pktData)
+	}
+}
+
+func (s *Server) handleClientUDPUplink(data []byte) {
+	raw, err := s.codec.Decrypt(data)
+	if err != nil {
+		return
+	}
+	pkt, err := VpnProto.Parse(raw)
+	if err != nil {
+		return
+	}
+	// Only allow ACK/NACK packets over the UDP uplink; anything else
+	// that needs the full DNS validation/response cycle must come via DNS.
+	if pkt.PacketType != Enums.PACKET_STREAM_DATA_ACK &&
+		pkt.PacketType != Enums.PACKET_STREAM_DATA_NACK {
+		return
+	}
+	now := time.Now()
+	validation := s.validatePostSessionPacketRaw(pkt, now)
+	if !validation.ok {
+		return
+	}
+	s.handlePostSessionPacket(pkt, validation.record)
+}
+
+// validatePostSessionPacketRaw validates a VPN packet that arrived over the UDP
+// uplink (no DNS question packet available). It checks that the session exists
+// and the cookie matches, then updates the session's last-activity timestamp.
+func (s *Server) validatePostSessionPacketRaw(pkt VpnProto.Packet, now time.Time) postSessionValidation {
+	validation := s.sessions.ValidateAndTouch(pkt.SessionID, pkt.SessionCookie, now)
+	if validation.Valid {
+		return postSessionValidation{
+			record: validation.Active,
+			ok:     true,
+		}
+	}
+	return postSessionValidation{}
 }
 
 // isNetBufferFull reports whether err signals that the OS UDP send buffer is
