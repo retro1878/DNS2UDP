@@ -39,10 +39,13 @@ func (c *Client) StopAsyncRuntime() {
 		c.log.Debugf("\U0001F6D1 <yellow>Stopping Async Runtime...</yellow>")
 		c.asyncCancel()
 		c.closeTunnelSockets()
-		if c.udpDownConn != nil {
-			_ = c.udpDownConn.Close()
-			c.udpDownConn = nil
+		for _, dc := range c.udpDownConns {
+			if dc != nil {
+				_ = dc.Close()
+			}
 		}
+		c.udpDownConns = nil
+		c.udpDownConn = nil
 		c.asyncWG.Wait()
 		c.asyncCancel = nil
 
@@ -250,10 +253,13 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 			c.dnsListener = nil
 		}
 		c.closeTunnelSockets()
-		if c.udpDownConn != nil {
-			_ = c.udpDownConn.Close()
-			c.udpDownConn = nil
+		for _, dc := range c.udpDownConns {
+			if dc != nil {
+				_ = dc.Close()
+			}
 		}
+		c.udpDownConns = nil
+		c.udpDownConn = nil
 		c.asyncCancel = nil
 		c.resetRuntimeBindings(false)
 	}()
@@ -276,16 +282,29 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 	c.tunnelConns = conns
 
 	if c.cfg.UDPDownloadPort > 0 && c.cfg.UDPDownloadIP != "" {
-		downConn, err := net.ListenUDP("udp", &net.UDPAddr{Port: c.cfg.UDPDownloadPort})
-		if err != nil {
-			for _, opened := range conns {
-				_ = opened.Close()
+		paths := max(1, c.udpPathCount)
+		downConns := make([]*net.UDPConn, 0, paths)
+		for i := 0; i < paths; i++ {
+			dc, err := net.ListenUDP("udp", &net.UDPAddr{Port: c.cfg.UDPDownloadPort + i})
+			if err != nil {
+				for _, opened := range conns {
+					_ = opened.Close()
+				}
+				for _, opened := range downConns {
+					_ = opened.Close()
+				}
+				cancel()
+				c.asyncCancel = nil
+				return fmt.Errorf("failed to open UDP download socket %d on port %d: %w", i, c.cfg.UDPDownloadPort+i, err)
 			}
-			cancel()
-			c.asyncCancel = nil
-			return fmt.Errorf("failed to open UDP download socket on port %d: %w", c.cfg.UDPDownloadPort, err)
+			// Large OS receive buffer to absorb server bursts without dropping packets.
+			_ = dc.SetReadBuffer(8 * 1024 * 1024)
+			_ = dc.SetWriteBuffer(2 * 1024 * 1024)
+			downConns = append(downConns, dc)
 		}
-		c.udpDownConn = downConn
+		c.udpDownConns = downConns
+		c.udpDownConn = downConns[0]
+		c.log.Infof("📡 <cyan>UDP download channel: <green>%d path(s)</green> starting at port <green>%d</green></cyan>", paths, c.cfg.UDPDownloadPort)
 	}
 
 	c.log.Infof("\U0001F4E1 <cyan>Async Runtime Initialized: <green>%d RX/TX Workers</green>, <green>%d Processors</green></cyan>",
@@ -339,13 +358,14 @@ func (c *Client) StartAsyncRuntime(parentCtx context.Context) error {
 	c.asyncWG.Add(1)
 	go c.asyncStreamCleanupWorker(runtimeCtx)
 
-	// 10. UDP download reader + dedicated processor pool (if configured).
-	// Improvement 1: dedicated workers prevent UDP bulk data from starving
-	// DNS control packets handled by the main asyncProcessorWorker pool.
-	if c.udpDownConn != nil {
-		c.asyncWG.Add(1)
-		go c.asyncUDPDownloadReaderWorker(runtimeCtx)
-
+	// 10. UDP download readers + dedicated processor pool.
+	// One reader goroutine per path socket gives each socket its own OS-level
+	// receive queue; all readers funnel into the shared udpRxChannel.
+	if len(c.udpDownConns) > 0 {
+		for i, dc := range c.udpDownConns {
+			c.asyncWG.Add(1)
+			go c.asyncUDPDownloadReaderWorker(runtimeCtx, i, dc)
+		}
 		udpWorkers := max(1, c.tunnelUDPWorkers)
 		for i := 0; i < udpWorkers; i++ {
 			c.asyncWG.Add(1)
@@ -807,13 +827,13 @@ func (c *Client) handleInboundPacket(data []byte, addr *net.UDPAddr, localAddr s
 
 const minRawUDPDownloadSize = 4
 
-// asyncUDPDownloadReaderWorker reads raw UDP packets from the UDP download
-// socket and dispatches them to the dedicated udpRxChannel (improvement 1),
-// keeping them isolated from DNS response traffic in rxChannel.
-func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
+// asyncUDPDownloadReaderWorker reads raw UDP packets from one download socket
+// (identified by pathID) and dispatches them into the shared udpRxChannel.
+// Running one goroutine per socket gives each OS receive queue its own drain
+// loop, preventing a single slow reader from stalling all paths.
+func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context, pathID int, conn *net.UDPConn) {
 	defer c.asyncWG.Done()
-	c.log.Debugf("\U0001F4E1 <green>UDP Download Reader started</green>")
-	conn := c.udpDownConn
+	c.log.Debugf("📡 <green>UDP Download Reader path <cyan>#%d</cyan> started (port %d)</green>", pathID, c.cfg.UDPDownloadPort+pathID)
 	for {
 		select {
 		case <-ctx.Done():
@@ -832,7 +852,8 @@ func (c *Client) asyncUDPDownloadReaderWorker(ctx context.Context) {
 				c.udpBufferPool.Put(buf)
 				continue
 			}
-			if c.serverUDPAddr.Load() == nil && addr != nil {
+			// Capture server's source address from path 0 for the ACK reverse channel.
+			if pathID == 0 && c.serverUDPAddr.Load() == nil && addr != nil {
 				c.serverUDPAddr.Store(addr)
 			}
 			c.rxTotalBytes.Add(uint64(n))

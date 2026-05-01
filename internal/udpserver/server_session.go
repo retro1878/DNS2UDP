@@ -695,7 +695,7 @@ func buildPreSessionPacketTypes() [256]bool {
 
 func (s *Server) handleSessionInitRequest(questionPacket []byte, decision domainMatcher.Decision, vpnPacket VpnProto.Packet) []byte {
 	payloadLen := len(vpnPacket.Payload)
-	if vpnPacket.SessionID != 0 || (payloadLen != sessionInitDataSize && payloadLen != sessionInitUDPSize) {
+	if vpnPacket.SessionID != 0 || (payloadLen != sessionInitDataSize && payloadLen != sessionInitUDPSize && payloadLen != sessionInitUDPMultiSize) {
 		return nil
 	}
 
@@ -726,12 +726,21 @@ func (s *Server) handleSessionInitRequest(questionPacket []byte, decision domain
 	}
 	record.streamCleanup = s.cleanupStreamArtifacts
 
-	if !reused && payloadLen == sessionInitUDPSize && s.cfg.UDPDownloadPort > 0 {
+	if !reused && (payloadLen == sessionInitUDPSize || payloadLen == sessionInitUDPMultiSize) && s.cfg.UDPDownloadPort > 0 {
 		ip := net.IP(vpnPacket.Payload[10:14]).To4()
-		port := int(binary.BigEndian.Uint16(vpnPacket.Payload[14:16]))
-		if ip != nil && port > 0 {
-			record.ClientUDPAddr = &net.UDPAddr{IP: ip, Port: port}
-			s.setUDPActiveRecord(record.ID, record) // improvement 4
+		basePort := int(binary.BigEndian.Uint16(vpnPacket.Payload[14:16]))
+		nPaths := 1
+		if payloadLen == sessionInitUDPMultiSize {
+			nPaths = max(1, min(int(vpnPacket.Payload[16]), 8))
+		}
+		if ip != nil && basePort > 0 {
+			addrs := make([]*net.UDPAddr, 0, nPaths)
+			for i := 0; i < nPaths; i++ {
+				addrs = append(addrs, &net.UDPAddr{IP: ip, Port: basePort + i})
+			}
+			record.ClientUDPAddr = addrs[0]
+			record.ClientUDPAddrs = addrs
+			s.setUDPActiveRecord(record.ID, record)
 		}
 	}
 

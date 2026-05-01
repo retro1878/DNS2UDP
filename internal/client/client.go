@@ -116,7 +116,9 @@ type Client struct {
 	asyncWG              sync.WaitGroup
 	asyncCancel          context.CancelFunc
 	tunnelConns          []*net.UDPConn
-	udpDownConn          *net.UDPConn
+	udpDownConn          *net.UDPConn   // first path, used for ACK send & receive
+	udpDownConns         []*net.UDPConn // all N paths (includes udpDownConn at index 0)
+	udpPathCount         int
 	txChannel            chan rawOutboundTask
 	encodedTXChannel     chan encodedOutboundTask
 	rxChannel            chan asyncReadPacket
@@ -366,7 +368,8 @@ func New(cfg config.ClientConfig, log *logger.Logger, codec *security.Codec) *Cl
 		txChannel:             make(chan rawOutboundTask, cfg.TXChannelSize),
 		encodedTXChannel:      make(chan encodedOutboundTask, max(24, cfg.RX_TX_Workers*24)),
 		rxChannel:             make(chan asyncReadPacket, cfg.RXChannelSize),
-		udpRxChannel:          make(chan asyncReadPacket, max(16, cfg.RXChannelSize/4)),
+		udpPathCount:          max(1, cfg.UDPDownloadPaths),
+		udpRxChannel:          make(chan asyncReadPacket, max(64, cfg.RXChannelSize*max(1, cfg.UDPDownloadPaths))),
 		active_streams:        make(map[uint16]*Stream_client),
 		recentlyClosedStreams: make(map[uint16]time.Time),
 		txSignal:              make(chan struct{}, 1),

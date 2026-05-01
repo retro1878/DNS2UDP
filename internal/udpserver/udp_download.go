@@ -79,17 +79,19 @@ func (s *Server) drainAllUDPSessions() {
 
 	now := time.Now()
 	for _, record := range s.drainBuf {
-		addr := record.ClientUDPAddr
-		if addr == nil {
+		if len(record.ClientUDPAddrs) == 0 {
 			continue
 		}
+		nPaths := uint32(len(record.ClientUDPAddrs))
 		for {
 			pkt, ok := s.dequeueSessionResponse(record.ID, now)
 			if !ok {
 				break
 			}
-			// Improvement 2: stop draining this session if the OS send buffer is full.
-			if !s.sendRawVPNPacketUDP(record, pkt, addr) {
+			// Round-robin across all client UDP paths per session.
+			idx := record.udpRRIdx % nPaths
+			record.udpRRIdx++
+			if !s.sendRawVPNPacketUDP(record, pkt, record.ClientUDPAddrs[idx]) {
 				break
 			}
 		}

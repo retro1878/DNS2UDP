@@ -30,8 +30,9 @@ var ErrSessionTableFull = errors.New("session table full")
 const (
 	maxServerSessionID    = 255
 	maxServerSessionSlots = 255
-	sessionInitDataSize   = 10
-	sessionInitUDPSize    = 16
+	sessionInitDataSize     = 10
+	sessionInitUDPSize      = 16
+	sessionInitUDPMultiSize = 17
 	minSessionMTU         = 10
 	maxSessionMTU         = 4096
 )
@@ -57,7 +58,9 @@ type sessionRecord struct {
 	lastActivityUnixNano                int64
 	lastDeferredCleanupActivityUnixNano int64
 
-	ClientUDPAddr *net.UDPAddr
+	ClientUDPAddr  *net.UDPAddr   // primary path (index 0)
+	ClientUDPAddrs []*net.UDPAddr // all paths for round-robin send
+	udpRRIdx       uint32         // atomic-style round-robin counter
 
 	// New fields for ARQ refactor
 	Streams                         map[uint16]*Stream_server
@@ -251,7 +254,7 @@ func newSessionStore(orphanQueueCap int, streamQueueCap int, options ...any) *se
 }
 
 func (s *sessionStore) findOrCreate(payload []byte, uploadCompressionType uint8, downloadCompressionType uint8, maxPacketsPerBatch int) (*sessionRecord, bool, error) {
-	if (len(payload) != sessionInitDataSize && len(payload) != sessionInitUDPSize) || !isValidSessionResponseMode(payload[0]) {
+	if (len(payload) != sessionInitDataSize && len(payload) != sessionInitUDPSize && len(payload) != sessionInitUDPMultiSize) || !isValidSessionResponseMode(payload[0]) {
 		return nil, false, nil
 	}
 
@@ -676,7 +679,7 @@ func (r *sessionRecord) runtimeView() sessionRuntimeView {
 		DownloadMTU:         r.DownloadMTU,
 		DownloadMTUBytes:    r.DownloadMTUBytes,
 		MaxPackedBlocks:     r.MaxPackedBlocks,
-		HasUDPDownload:      r.ClientUDPAddr != nil,
+		HasUDPDownload:      len(r.ClientUDPAddrs) > 0,
 	}
 }
 
@@ -744,7 +747,7 @@ func (r *sessionRecord) getOrCreateStream(streamID uint16, arqConfig arq.Config,
 	delete(r.RecentlyClosed, streamID)
 
 	mtu := r.DownloadMTUBytes
-	if r.ClientUDPAddr != nil {
+	if len(r.ClientUDPAddrs) > 0 {
 		mtu = udpDownloadMTUBytes
 	}
 	s := NewStreamServer(streamID, r.ID, arqConfig, localConn, mtu, r.StreamQueueCap, logger)

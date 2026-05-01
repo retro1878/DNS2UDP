@@ -30,6 +30,7 @@ var (
 const (
 	sessionInitPayloadSize      = 10
 	sessionInitUDPSize          = 16
+	sessionInitUDPMultiSize     = 17 // sessionInitUDPSize + 1 byte NPaths
 	sessionAcceptPayloadSize    = 7
 	sessionBusyPayloadSize      = 4
 	sessionCloseBurstMaxTargets = 10
@@ -108,8 +109,14 @@ func (c *Client) buildSessionInitPayload() ([]byte, bool, [4]byte, error) {
 	copy(verifyCode[:], randomPart)
 
 	size := sessionInitPayloadSize
+	nPaths := 0
 	if c.cfg.UDPDownloadPort > 0 && c.cfg.UDPDownloadIP != "" {
-		size = sessionInitUDPSize
+		nPaths = max(1, c.udpPathCount)
+		if nPaths > 1 {
+			size = sessionInitUDPMultiSize
+		} else {
+			size = sessionInitUDPSize
+		}
 	}
 	payload := make([]byte, size)
 	if c.cfg.BaseEncodeData {
@@ -119,11 +126,14 @@ func (c *Client) buildSessionInitPayload() ([]byte, bool, [4]byte, error) {
 	binary.BigEndian.PutUint16(payload[2:4], uint16(c.syncedUploadMTU))
 	binary.BigEndian.PutUint16(payload[4:6], uint16(c.syncedDownloadMTU))
 	copy(payload[6:10], verifyCode[:])
-	if size == sessionInitUDPSize {
+	if nPaths > 0 {
 		ip := net.ParseIP(c.cfg.UDPDownloadIP).To4()
 		if ip != nil {
 			copy(payload[10:14], ip)
 			binary.BigEndian.PutUint16(payload[14:16], uint16(c.cfg.UDPDownloadPort))
+			if size == sessionInitUDPMultiSize {
+				payload[16] = uint8(nPaths)
+			}
 		}
 	}
 	return payload, payload[0] == mtuProbeBase64Reply, verifyCode, nil

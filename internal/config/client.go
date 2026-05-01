@@ -136,6 +136,7 @@ type ClientConfig struct {
 	ARQTerminalAckWaitTimeoutSec          float64           `toml:"ARQ_TERMINAL_ACK_WAIT_TIMEOUT_SECONDS"`
 	UDPDownloadIP                         string            `toml:"UDP_DOWNLOAD_IP"`
 	UDPDownloadPort                       int               `toml:"UDP_DOWNLOAD_PORT"`
+	UDPDownloadPaths                      int               `toml:"UDP_DOWNLOAD_PATHS"`
 	Resolvers                             []ResolverAddress `toml:"-"`
 	ResolverMap                           map[string]int    `toml:"-"`
 }
@@ -536,6 +537,7 @@ func finalizeClientConfig(cfg ClientConfig) (ClientConfig, error) {
 	if cfg.UDPDownloadPort < 0 || cfg.UDPDownloadPort > 65535 {
 		cfg.UDPDownloadPort = 0
 	}
+	cfg.UDPDownloadPaths = clampInt(defaultIntBelow(cfg.UDPDownloadPaths, 1, 1), 1, 8)
 
 	resolvers, resolverMap, err := LoadClientResolvers(cfg.ResolversPath())
 	if err != nil {
