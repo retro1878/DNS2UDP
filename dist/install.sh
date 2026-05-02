@@ -10,7 +10,7 @@ IFS=$'\n\t'
 # ══════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
 # ══════════════════════════════════════════════════════════════════════════════
-readonly INSTALLER_VER="2.0"
+readonly INSTALLER_VER="2.1"
 readonly GITHUB_REPO="retro1878/DNS2UDP"
 readonly GITHUB_BASE="https://github.com/${GITHUB_REPO}"
 readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}"
@@ -1138,15 +1138,24 @@ do_install_client() {
   echo
   local udp_dl_yn; ask_yn udp_dl_yn \
     "Enable parallel UDP download channel? (server must have it enabled too)" "n"
-  local udp_dl_port=0 udp_dl_ip=""
+  local udp_dl_port=0 udp_dl_ip="" udp_dl_paths=1
   if [[ "$udp_dl_yn" == "true" ]]; then
     local udp_str=""
     while true; do
-      ask_required udp_str "UDP download port (must match server UDP_DOWNLOAD_PORT)" "5555"
+      ask_required udp_str "UDP download base port (must match server UDP_DOWNLOAD_PORT)" "5555"
       valid_port "$udp_str" && break
       echo -e "  ${R}Invalid port.${NC}"
     done
     udp_dl_port="$udp_str"
+
+    echo
+    while true; do
+      ask_required udp_dl_paths "Number of parallel UDP paths (1-8)" "4"
+      if [[ "$udp_dl_paths" =~ ^[1-8]$ ]]; then
+        break
+      fi
+      echo -e "  ${R}Enter a valid number between 1 and 8.${NC}"
+    done
 
     if [[ -n "${PUBLIC_IP:-}" ]]; then
       echo
@@ -1195,6 +1204,13 @@ do_install_client() {
   toml_str     "PROTOCOL_TYPE"          "$proto"         client_config.toml
   toml_str     "STARTUP_MODE"           "$startup_mode"  client_config.toml
   toml_int     "UDP_DOWNLOAD_PORT"      "$udp_dl_port"   client_config.toml
+  if [[ $udp_dl_port -gt 0 ]]; then
+    if grep -q "^UDP_DOWNLOAD_PATHS" client_config.toml; then
+      toml_int "UDP_DOWNLOAD_PATHS" "$udp_dl_paths" client_config.toml
+    else
+      echo "UDP_DOWNLOAD_PATHS = $udp_dl_paths" >> client_config.toml
+    fi
+  fi
   [[ -n "$udp_dl_ip" ]] && toml_str "UDP_DOWNLOAD_IP" "$udp_dl_ip" client_config.toml
   done_ "Config written."
 
@@ -1238,7 +1254,9 @@ do_install_client() {
   # ── 8. Firewall (UDP download channel) ────────────────────────────────────
   step "Firewall Configuration"
   if [[ $udp_dl_port -gt 0 ]]; then
-    open_port "$udp_dl_port" udp
+    for (( i=0; i<$udp_dl_paths; i++ )); do
+      open_port "$(( udp_dl_port + i ))" udp
+    done
   else
     info "No firewall changes needed (UDP download channel disabled)."
   fi
@@ -1276,7 +1294,18 @@ do_install_client() {
   kv "Local proxy:"        "${proto} on 127.0.0.1:${listen_port}"
   kv "Startup mode:"       "$startup_mode"
   kv "Resolvers:"          "${#good_resolvers[@]} configured"
-  kv "UDP download:"       "$([[ $udp_dl_port -gt 0 ]] && echo "port ${udp_dl_port} (IP: ${udp_dl_ip})" || echo "disabled")"
+  
+  if [[ $udp_dl_port -gt 0 ]]; then
+    local port_end=$(( udp_dl_port + udp_dl_paths - 1 ))
+    if [[ $udp_dl_paths -gt 1 ]]; then
+      kv "UDP download:" "ports ${udp_dl_port}-${port_end} (${udp_dl_paths} paths, IP: ${udp_dl_ip})"
+    else
+      kv "UDP download:" "port ${udp_dl_port} (IP: ${udp_dl_ip})"
+    fi
+  else
+    kv "UDP download:" "disabled"
+  fi
+  
   kv "Install directory:"  "$INSTALL_DIR"
   echo
   hr; echo
